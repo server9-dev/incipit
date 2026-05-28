@@ -144,9 +144,9 @@ export function ManuscriptTree({
           onRowDrop={onRowDrop}
         />
       ))}
-      <div className="mt-2 flex flex-wrap gap-2 border-t border-neutral-200 px-1 pt-2">
+      <div className="mt-2 flex flex-wrap gap-2 border-t border-linesoft px-1 pt-2">
         {(["folder", "chapter", "scene", "poem"] as NodeType[]).map((t) => (
-          <button key={t} onClick={() => onAddRoot(t)} className="text-[11px] text-neutral-400 hover:text-neutral-900">
+          <button key={t} onClick={() => onAddRoot(t)} className="text-[11px] text-mute hover:text-fg">
             + {t === "folder" ? "Section" : t[0]!.toUpperCase() + t.slice(1)}
           </button>
         ))}
@@ -199,23 +199,23 @@ function Row({
         onDragOver={onRowDragOver(item)}
         onDrop={onRowDrop(item)}
         className={`group relative flex items-center gap-1 rounded-md py-1 pr-1 text-sm ${
-          selected ? "bg-neutral-900 text-white" : "hover:bg-neutral-200"
-        } ${dragging ? "opacity-40" : ""} ${showHint === "inside" ? "ring-2 ring-indigo-400" : ""}`}
+          selected ? "bg-brand text-ink" : "hover:bg-elevated"
+        } ${dragging ? "opacity-40" : ""} ${showHint === "inside" ? "ring-2 ring-brand" : ""}`}
         style={{ paddingLeft: depth * 14 + 6 }}
       >
-        {showHint === "before" && <span className="pointer-events-none absolute inset-x-1 -top-px h-0.5 rounded bg-indigo-500" />}
-        {showHint === "after" && <span className="pointer-events-none absolute inset-x-1 -bottom-px h-0.5 rounded bg-indigo-500" />}
+        {showHint === "before" && <span className="pointer-events-none absolute inset-x-1 -top-px h-0.5 rounded bg-brand" />}
+        {showHint === "after" && <span className="pointer-events-none absolute inset-x-1 -bottom-px h-0.5 rounded bg-brand" />}
         <span className="w-3 shrink-0 cursor-grab text-center text-xs opacity-60">{ICON[item.type]}</span>
         <button onClick={() => onSelect(item)} className="flex-1 truncate text-left">
           {item.title}
           {item.type !== "folder" && item.wordCount > 0 && (
-            <span className={`ml-1 text-[10px] ${selected ? "text-neutral-300" : "text-neutral-400"}`}>{item.wordCount}w</span>
+            <span className={`ml-1 text-[10px] ${selected ? "text-ink/70" : "text-mute"}`}>{item.wordCount}w</span>
           )}
         </button>
         <button
           onClick={() => onDelete(item)}
           className={`px-1 text-xs opacity-0 transition group-hover:opacity-100 ${
-            selected ? "text-neutral-300 hover:text-red-300" : "text-neutral-400 hover:text-red-500"
+            selected ? "text-ink/70 hover:text-red-300" : "text-mute hover:text-red-500"
           }`}
           title="Delete"
         >
@@ -244,7 +244,7 @@ function Row({
       {CHILD_OPTIONS[item.type].length > 0 && (
         <div className="flex flex-wrap gap-1 pb-1" style={{ paddingLeft: (depth + 1) * 14 + 6 }}>
           {CHILD_OPTIONS[item.type].map((opt) => (
-            <button key={opt.type} onClick={() => onAdd(item, opt.type)} className="text-[11px] text-neutral-400 hover:text-neutral-900">
+            <button key={opt.type} onClick={() => onAdd(item, opt.type)} className="text-[11px] text-mute hover:text-fg">
               {opt.label}
             </button>
           ))}

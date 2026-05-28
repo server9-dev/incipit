@@ -16,13 +16,13 @@ export default function App() {
   const online = model !== "offline" && model !== "connecting…";
 
   return (
-    <div className="flex h-full flex-col bg-white text-neutral-900">
-      <header className="flex items-center justify-between border-b border-neutral-200 px-5 py-2">
+    <div className="flex h-full flex-col bg-ink text-fg">
+      <header className="flex items-center justify-between border-b border-linesoft px-5 py-2">
         <div className="flex items-baseline gap-2">
-          <span className="text-base font-semibold tracking-tight">Incipit</span>
-          <span className="text-xs text-neutral-400">fiction studio · local-first</span>
+          <span className="brand-gradient text-base font-semibold tracking-tight">Incipit</span>
+          <span className="text-xs text-mute">fiction studio · local-first</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-neutral-500">
+        <div className="flex items-center gap-2 text-xs text-dim">
           <span className={`h-2 w-2 rounded-full ${online ? "bg-green-500" : "bg-red-500"}`} />
           {model}
         </div>

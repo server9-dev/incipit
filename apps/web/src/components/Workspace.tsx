@@ -116,32 +116,32 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
     setShowOutline(false);
   }
 
-  if (!project) return <div className="p-10 text-neutral-400">Loading…</div>;
+  if (!project) return <div className="p-10 text-mute">Loading…</div>;
 
   return (
     <div className="flex h-full flex-col">
-      <header className="flex items-center justify-between border-b border-neutral-200 px-4 py-2">
+      <header className="flex items-center justify-between border-b border-linesoft px-4 py-2">
         <div className="flex items-center gap-3">
-          <button onClick={onExit} className="text-sm text-neutral-500 hover:text-neutral-900">
+          <button onClick={onExit} className="text-sm text-dim hover:text-fg">
             ← Projects
           </button>
           <input
             value={project.title}
             onChange={(e) => patchProject({ title: e.target.value })}
-            className="text-sm font-semibold text-neutral-900 outline-none"
+            className="text-sm font-semibold text-fg outline-none"
           />
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-neutral-400">{saving ? "saving…" : "saved"}</span>
+          <span className="text-xs text-mute">{saving ? "saving…" : "saved"}</span>
           <button
             onClick={() => setShowOutline(true)}
-            className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+            className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated"
           >
             Outline
           </button>
           <button
             onClick={() => setShowBook(true)}
-            className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+            className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated"
           >
             Book view
           </button>
@@ -149,9 +149,9 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
       </header>
 
       <div className="flex min-h-0 flex-1">
-        <aside className="flex w-64 flex-col border-r border-neutral-200 bg-neutral-50">
+        <aside className="flex w-64 flex-col border-r border-linesoft bg-surface">
           <ProjectSetup project={project} onChange={patchProject} />
-          <div className="border-t border-neutral-200 px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400">
+          <div className="border-t border-linesoft px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-mute">
             Manuscript
           </div>
           <ManuscriptTree
@@ -179,7 +179,7 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
           ) : selected ? (
             <FolderView node={selected} onTitle={(v) => patchNodeLocal(selected.id, { title: v })} />
           ) : (
-            <div className="flex h-full items-center justify-center text-neutral-400">
+            <div className="flex h-full items-center justify-center text-mute">
               Select or add a scene to start writing.
             </div>
           )}
@@ -214,9 +214,9 @@ function FolderView({ node, onTitle }: { node: StoryNode; onTitle: (v: string) =
       <input
         value={node.title}
         onChange={(e) => onTitle(e.target.value)}
-        className="text-xl font-semibold text-neutral-900 outline-none"
+        className="text-xl font-semibold text-fg outline-none"
       />
-      <p className="mt-2 text-sm text-neutral-400">
+      <p className="mt-2 text-sm text-mute">
         This is a {node.type}. Add and select a scene inside it to write.
       </p>
     </div>

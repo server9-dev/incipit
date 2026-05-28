@@ -2,6 +2,22 @@
 
 @theme {
   --font-garamond: "EB Garamond", Georgia, serif;
+
+  /* OtherThing palette — cyberpunk dark (cyan → purple → magenta) */
+  --color-void: #06060a;
+  --color-ink: #0a0a12;
+  --color-surface: #12121a;
+  --color-surface2: #1a1a24;
+  --color-elevated: #24242e;
+  --color-fg: #fafafa;
+  --color-dim: #a1a1aa;
+  --color-mute: #71717a;
+  --color-line: rgba(255, 255, 255, 0.12);
+  --color-linesoft: rgba(255, 255, 255, 0.08);
+  --color-brand: #00d4ff;
+  --color-brand-dark: #00a3cc;
+  --color-purple: #9b59b6;
+  --color-accent: #ff0080;
 }
 
 html,
@@ -13,16 +29,44 @@ body,
 
 body {
   font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+  background: var(--color-ink);
+  color: var(--color-fg);
 }
 
-/* ---- TipTap editor content ---- */
+::selection {
+  background: rgba(0, 212, 255, 0.3);
+}
+
+/* thin dark scrollbars */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.18) transparent;
+}
+*::-webkit-scrollbar {
+  width: 9px;
+  height: 9px;
+}
+*::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+  border-radius: 6px;
+}
+
+/* brand gradient text (app wordmark) */
+.brand-gradient {
+  background: linear-gradient(135deg, #00d4ff 0%, #9b59b6 50%, #ff0080 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+/* ---- TipTap editor content (light paper; color set by paper bg) ---- */
 .incipit-prose {
   outline: none;
   min-height: 100%;
   padding: 1.5rem 2rem;
   font-size: 19px;
   line-height: 1.7;
-  color: #262626;
+  color: inherit;
 }
 .incipit-prose.verse {
   white-space: pre-wrap;
@@ -51,15 +95,16 @@ body {
   margin: 0 0 0.8em;
 }
 .incipit-prose blockquote {
-  border-left: 3px solid #d4d4d4;
+  border-left: 3px solid var(--color-brand);
   padding-left: 1em;
   margin: 0 0 0.8em;
-  color: #525252;
+  opacity: 0.72;
   font-style: italic;
 }
 .incipit-prose mark {
   border-radius: 2px;
   padding: 0 1px;
+  color: #1a1a1a; /* dark text on the pastel highlight, readable on paper */
 }
 .incipit-prose strong {
   font-weight: 700;
@@ -69,11 +114,11 @@ body {
   content: attr(data-placeholder);
   float: left;
   height: 0;
-  color: #a3a3a3;
+  color: #9a9a9a;
   pointer-events: none;
 }
 
-/* ---- Book view (print preview) ---- */
+/* ---- Book view (print preview) — pages stay light paper ---- */
 .book-page {
   position: relative;
   box-sizing: border-box;
@@ -116,7 +161,7 @@ body {
   font-style: italic;
 }
 .book-prose mark {
-  background: transparent; /* highlights don't print as ink blocks */
+  background: transparent;
 }
 .book-chap-title {
   text-align: center;

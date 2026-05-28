@@ -12,21 +12,21 @@ export function ProjectSetup({
 
   const field = (label: string, key: keyof Project, placeholder: string) => (
     <div>
-      <label className="block text-[10px] font-medium uppercase tracking-wide text-neutral-400">{label}</label>
+      <label className="block text-[10px] font-medium uppercase tracking-wide text-mute">{label}</label>
       <input
         value={(project[key] as string) ?? ""}
         onChange={(e) => onChange({ [key]: e.target.value } as Partial<Project>)}
         placeholder={placeholder}
-        className="w-full rounded border border-neutral-200 bg-white px-2 py-1 text-xs outline-none focus:border-neutral-900"
+        className="w-full rounded border border-linesoft bg-surface px-2 py-1 text-xs outline-none focus:border-brand"
       />
     </div>
   );
 
   return (
-    <div className="border-b border-neutral-200">
+    <div className="border-b border-linesoft">
       <button
         onClick={() => setOpen((o) => !o)}
-        className="flex w-full items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-neutral-400 hover:text-neutral-700"
+        className="flex w-full items-center justify-between px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-mute hover:text-dim"
       >
         Project voice
         <span>{open ? "−" : "+"}</span>
@@ -37,23 +37,23 @@ export function ProjectSetup({
           {field("POV", "pov", "e.g. first person")}
           {field("Tense", "tense", "e.g. past")}
           <div>
-            <label className="block text-[10px] font-medium uppercase tracking-wide text-neutral-400">Premise</label>
+            <label className="block text-[10px] font-medium uppercase tracking-wide text-mute">Premise</label>
             <textarea
               value={project.synopsis}
               onChange={(e) => onChange({ synopsis: e.target.value })}
               placeholder="One-line logline"
               rows={2}
-              className="w-full resize-none rounded border border-neutral-200 bg-white px-2 py-1 text-xs outline-none focus:border-neutral-900"
+              className="w-full resize-none rounded border border-linesoft bg-surface px-2 py-1 text-xs outline-none focus:border-brand"
             />
           </div>
           <div>
-            <label className="block text-[10px] font-medium uppercase tracking-wide text-neutral-400">Voice / style</label>
+            <label className="block text-[10px] font-medium uppercase tracking-wide text-mute">Voice / style</label>
             <textarea
               value={project.styleNotes}
               onChange={(e) => onChange({ styleNotes: e.target.value })}
               placeholder="Tone, influences, dos and don'ts the AI should follow"
               rows={2}
-              className="w-full resize-none rounded border border-neutral-200 bg-white px-2 py-1 text-xs outline-none focus:border-neutral-900"
+              className="w-full resize-none rounded border border-linesoft bg-surface px-2 py-1 text-xs outline-none focus:border-brand"
             />
           </div>
         </div>

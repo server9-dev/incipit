@@ -38,14 +38,14 @@ export function OutlineModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-6" onClick={onClose}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
       <div
-        className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-white shadow-xl"
+        className="flex max-h-[85vh] w-full max-w-2xl flex-col rounded-2xl bg-surface shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-neutral-200 px-5 py-3">
-          <h2 className="font-semibold text-neutral-900">Outline · beat sheet</h2>
-          <button onClick={onClose} className="text-neutral-400 hover:text-neutral-900">✕</button>
+        <div className="flex items-center justify-between border-b border-linesoft px-5 py-3">
+          <h2 className="font-semibold text-fg">Outline · beat sheet</h2>
+          <button onClick={onClose} className="text-mute hover:text-fg">✕</button>
         </div>
 
         <div className="space-y-3 p-5">
@@ -53,7 +53,7 @@ export function OutlineModal({
             <select
               value={framework}
               onChange={(e) => setFramework(e.target.value as OutlineFramework)}
-              className="rounded-lg border border-neutral-300 bg-white px-3 py-2 text-sm outline-none focus:border-neutral-900"
+              className="rounded-lg border border-line bg-surface px-3 py-2 text-sm outline-none focus:border-brand"
             >
               {FRAMEWORKS.map((f) => (
                 <option key={f} value={f}>
@@ -64,7 +64,7 @@ export function OutlineModal({
             <button
               onClick={generate}
               disabled={busy || !premise.trim()}
-              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700 disabled:opacity-40"
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-ink hover:bg-brand-dark disabled:opacity-40"
             >
               {busy ? "Generating…" : "Generate"}
             </button>
@@ -74,21 +74,21 @@ export function OutlineModal({
             onChange={(e) => setPremise(e.target.value)}
             placeholder="Premise / logline to outline from…"
             rows={2}
-            className="w-full resize-none rounded-lg border border-neutral-300 px-3 py-2 text-sm outline-none focus:border-neutral-900"
+            className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand"
           />
         </div>
 
         {result && (
-          <div className="min-h-0 flex-1 overflow-y-auto border-t border-neutral-200 px-5 py-3">
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-neutral-800">{result}</pre>
+          <div className="min-h-0 flex-1 overflow-y-auto border-t border-linesoft px-5 py-3">
+            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">{result}</pre>
           </div>
         )}
 
         {result && !busy && (
-          <div className="flex justify-end gap-2 border-t border-neutral-200 px-5 py-3">
+          <div className="flex justify-end gap-2 border-t border-linesoft px-5 py-3">
             <button
               onClick={() => onInsert(`Outline · ${OUTLINE_FRAMEWORK_LABELS[framework]}`, result)}
-              className="rounded-lg bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700"
+              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-ink hover:bg-brand-dark"
             >
               Save as note
             </button>

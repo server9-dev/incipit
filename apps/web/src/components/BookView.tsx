@@ -157,32 +157,32 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
   }
 
   return (
-    <div className="book-view-root fixed inset-0 z-50 flex flex-col bg-neutral-100">
-      <div className="book-toolbar flex items-center gap-3 border-b border-neutral-300 bg-white px-4 py-2">
-        <span className="font-semibold text-neutral-900">{project.title}</span>
-        <span className="text-xs text-neutral-400">Book view · {pages.length} pages · {totalWords.toLocaleString()} words</span>
+    <div className="book-view-root fixed inset-0 z-50 flex flex-col bg-void">
+      <div className="book-toolbar flex items-center gap-3 border-b border-linesoft bg-surface px-4 py-2">
+        <span className="font-semibold text-fg">{project.title}</span>
+        <span className="text-xs text-mute">Book view · {pages.length} pages · {totalWords.toLocaleString()} words</span>
         <select
           value={trimIdx}
           onChange={(e) => setTrimIdx(Number(e.target.value))}
-          className="ml-2 rounded border border-neutral-300 bg-white px-2 py-1 text-xs outline-none"
+          className="ml-2 rounded border border-line bg-surface px-2 py-1 text-xs text-fg outline-none"
         >
           {TRIMS.map((t, i) => (
             <option key={t.label} value={i}>{t.label}</option>
           ))}
         </select>
         <div className="flex items-center gap-1 text-xs">
-          <button onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(2)))} className="rounded border border-neutral-300 px-2 py-1 hover:bg-neutral-100">−</button>
-          <span className="w-10 text-center text-neutral-500">{Math.round(zoom * 100)}%</span>
-          <button onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2)))} className="rounded border border-neutral-300 px-2 py-1 hover:bg-neutral-100">+</button>
+          <button onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(2)))} className="rounded border border-line px-2 py-1 text-dim hover:bg-elevated">−</button>
+          <span className="w-10 text-center text-dim">{Math.round(zoom * 100)}%</span>
+          <button onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2)))} className="rounded border border-line px-2 py-1 text-dim hover:bg-elevated">+</button>
         </div>
         <div className="ml-auto flex items-center gap-2">
-          <button onClick={exportPdf} className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
+          <button onClick={exportPdf} className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated">
             PDF
           </button>
-          <button onClick={exportEpub} disabled={exporting} className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100 disabled:opacity-50">
+          <button onClick={exportEpub} disabled={exporting} className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated disabled:opacity-50">
             {exporting ? "Exporting…" : "EPUB"}
           </button>
-          <button onClick={onClose} className="rounded-md bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-700">
+          <button onClick={onClose} className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink hover:bg-brand-dark">
             Close
           </button>
         </div>
@@ -190,7 +190,7 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
 
       <div className="book-scroll flex-1 overflow-auto py-8">
         <div className="flex flex-col items-center gap-6">
-          {pages.length === 0 && <div className="mt-20 text-sm text-neutral-400">Nothing to preview yet — write some prose first.</div>}
+          {pages.length === 0 && <div className="mt-20 text-sm text-mute">Nothing to preview yet — write some prose first.</div>}
           {pages.map((page, i) => (
             <div
               key={i}
