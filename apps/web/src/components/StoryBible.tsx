@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { ENTITY_TYPE_LABELS, type Entity, type EntityType } from "@firstdraft/shared";
+import { ENTITY_TYPE_LABELS, type Entity, type EntityType } from "@incipit/shared";
 
 const TYPE_ORDER: EntityType[] = ["character", "location", "item", "lore"];
 

@@ -19,7 +19,7 @@ export default function App() {
     <div className="flex h-full flex-col bg-white text-neutral-900">
       <header className="flex items-center justify-between border-b border-neutral-200 px-5 py-2">
         <div className="flex items-baseline gap-2">
-          <span className="text-base font-semibold tracking-tight">firstdraft</span>
+          <span className="text-base font-semibold tracking-tight">Incipit</span>
           <span className="text-xs text-neutral-400">fiction studio · local-first</span>
         </div>
         <div className="flex items-center gap-2 text-xs text-neutral-500">

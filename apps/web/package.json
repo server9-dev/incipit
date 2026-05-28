@@ -1,5 +1,5 @@
 {
-  "name": "@firstdraft/web",
+  "name": "@incipit/web",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -10,7 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@firstdraft/shared": "workspace:*",
+    "@incipit/shared": "workspace:*",
+    "@fontsource/eb-garamond": "^5.2.7",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },

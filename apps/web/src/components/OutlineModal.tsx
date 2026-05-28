@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { OUTLINE_FRAMEWORK_LABELS, type OutlineFramework } from "@firstdraft/shared";
+import { OUTLINE_FRAMEWORK_LABELS, type OutlineFramework } from "@incipit/shared";
 import { outline as outlineApi } from "../api.js";
 
 const FRAMEWORKS = Object.keys(OUTLINE_FRAMEWORK_LABELS) as OutlineFramework[];

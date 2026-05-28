@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import type { Project, StoryNode, Entity, NodeType, EntityType } from "@firstdraft/shared";
+import type { Project, StoryNode, Entity, NodeType, EntityType } from "@incipit/shared";
 import * as api from "../api.js";
 import { ManuscriptTree } from "./ManuscriptTree.js";
 import { Editor } from "./Editor.js";

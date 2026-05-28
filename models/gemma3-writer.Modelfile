@@ -1,4 +1,4 @@
-# Gemma 3 12B tuned for long-form non-fiction writing in firstdraft-oss.
+# Gemma 3 12B tuned for long-form non-fiction writing in incipit.
 # Key purpose: bake in a real context window (Ollama otherwise defaults num_ctx
 # to ~2k regardless of the model's 128k ceiling) plus prose-friendly sampling.
 #

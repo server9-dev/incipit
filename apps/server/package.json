@@ -1,5 +1,5 @@
 {
-  "name": "@firstdraft/server",
+  "name": "@incipit/server",
   "version": "0.1.0",
   "private": true,
   "type": "module",
@@ -12,7 +12,7 @@
     "@ai-sdk/anthropic": "^1.0.0",
     "@ai-sdk/google": "^1.0.0",
     "@ai-sdk/openai": "^1.0.0",
-    "@firstdraft/shared": "workspace:*",
+    "@incipit/shared": "workspace:*",
     "@hono/node-server": "^1.13.7",
     "ai": "^4.0.0",
     "better-sqlite3": "^11.7.0",

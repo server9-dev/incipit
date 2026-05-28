@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { projectTypeSchema } from "@firstdraft/shared";
+import { projectTypeSchema } from "@incipit/shared";
 import { projects, nodes, entities } from "../db.js";
 
 export const projectRoutes = new Hono();

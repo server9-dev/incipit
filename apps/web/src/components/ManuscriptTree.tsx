@@ -1,4 +1,4 @@
-import type { StoryNode, NodeType } from "@firstdraft/shared";
+import type { StoryNode, NodeType } from "@incipit/shared";
 
 type TreeItem = StoryNode & { children: TreeItem[] };
 

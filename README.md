@@ -1,4 +1,4 @@
-# firstdraft-oss
+# Incipit
 
 An open-source, **local-first** fiction writing studio — for **novels, short stories, and
 verse**. Plan structure, draft prose, and refine your craft with AI that runs entirely on

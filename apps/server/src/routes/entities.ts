@@ -1,6 +1,6 @@
 import { Hono } from "hono";
 import { z } from "zod";
-import { entityTypeSchema } from "@firstdraft/shared";
+import { entityTypeSchema } from "@incipit/shared";
 import { entities } from "../db.js";
 
 export const entityRoutes = new Hono();

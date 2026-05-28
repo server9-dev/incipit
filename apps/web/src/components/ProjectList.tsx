@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { PROJECT_TYPE_LABELS, type Project, type ProjectType } from "@firstdraft/shared";
+import { PROJECT_TYPE_LABELS, type Project, type ProjectType } from "@incipit/shared";
 import { listProjects, createProject, deleteProject } from "../api.js";
 
 const TYPES = Object.keys(PROJECT_TYPE_LABELS) as ProjectType[];

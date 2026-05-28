@@ -12,9 +12,9 @@ import {
   type Entity,
   type EntityType,
   type ScaffoldNode,
-} from "@firstdraft/shared";
+} from "@incipit/shared";
 
-const DB_PATH = process.env.DB_PATH ?? "./data/firstdraft.sqlite";
+const DB_PATH = process.env.DB_PATH ?? "./data/incipit.sqlite";
 mkdirSync(dirname(DB_PATH), { recursive: true });
 
 export const db: DatabaseType = new Database(DB_PATH);

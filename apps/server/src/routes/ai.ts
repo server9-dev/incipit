@@ -11,7 +11,7 @@ import {
   REFINE_SYSTEM,
   refineUserPrompt,
   type Entity,
-} from "@firstdraft/shared";
+} from "@incipit/shared";
 import { getModel } from "../ai.js";
 import { projects, nodes, entities } from "../db.js";
 

@@ -3,7 +3,7 @@ import {
   REFINE_LABELS,
   type StoryNode,
   type RefineAction,
-} from "@firstdraft/shared";
+} from "@incipit/shared";
 import { draft as draftApi, refine as refineApi } from "../api.js";
 
 const REFINE_ORDER: RefineAction[] = [
@@ -138,8 +138,8 @@ export function Editor({
         value={node.content}
         onChange={(e) => onContentChange(e.target.value)}
         placeholder={isVerse ? "Write your verse here, or hit Draft verse." : "Write here, or hit Draft scene to have the AI write from your brief and story bible. Select a passage to refine it."}
-        className={`flex-1 resize-none px-8 py-6 leading-relaxed text-neutral-800 outline-none ${
-          isVerse ? "font-serif whitespace-pre text-[15px]" : "text-[15px]"
+        className={`flex-1 resize-none px-8 py-6 font-garamond leading-relaxed text-neutral-800 outline-none ${
+          isVerse ? "whitespace-pre text-[19px]" : "text-[19px]"
         }`}
       />
     </div>

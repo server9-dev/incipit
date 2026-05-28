@@ -1,5 +1,5 @@
 import { useState } from "react";
-import type { Project } from "@firstdraft/shared";
+import type { Project } from "@incipit/shared";
 
 export function ProjectSetup({
   project,

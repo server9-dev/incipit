@@ -7,7 +7,7 @@ import type {
   EntityType,
   RefineAction,
   OutlineFramework,
-} from "@firstdraft/shared";
+} from "@incipit/shared";
 
 async function json<T>(res: Response): Promise<T> {
   if (!res.ok) throw new Error((await res.text().catch(() => res.statusText)) || "Request failed");
