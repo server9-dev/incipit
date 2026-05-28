@@ -72,3 +72,67 @@ body {
   color: #a3a3a3;
   pointer-events: none;
 }
+
+/* ---- Book view (print preview) ---- */
+.book-page {
+  position: relative;
+  box-sizing: border-box;
+}
+.book-folio {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0.4in;
+  text-align: center;
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 9pt;
+  color: #9ca3af;
+}
+.book-prose {
+  font-family: "EB Garamond", Georgia, serif;
+  font-size: 11pt;
+  line-height: 1.35;
+  color: #111;
+}
+.book-prose p {
+  margin: 0;
+  text-indent: 1.5em;
+  text-align: justify;
+  hyphens: auto;
+}
+.book-prose h1,
+.book-prose h2 {
+  text-align: center;
+  font-weight: 600;
+  text-indent: 0;
+  margin: 0 0 0.6em;
+}
+.book-prose ul,
+.book-prose ol {
+  margin: 0 0 0 1.4em;
+}
+.book-prose blockquote {
+  margin: 0.4em 1.2em;
+  font-style: italic;
+}
+.book-prose mark {
+  background: transparent; /* highlights don't print as ink blocks */
+}
+.book-chap-title {
+  text-align: center;
+  font-size: 1.5em;
+  font-weight: 600;
+  margin-bottom: 1.6em;
+}
+.book-part-title {
+  text-align: center;
+  font-size: 1.9em;
+  font-weight: 700;
+  letter-spacing: 0.03em;
+  margin-bottom: 1em;
+}
+.book-scene-break {
+  text-align: center;
+  margin: 1.1em 0;
+  color: #6b7280;
+}

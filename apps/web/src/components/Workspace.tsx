@@ -6,6 +6,7 @@ import { Editor } from "./Editor.js";
 import { StoryBible } from "./StoryBible.js";
 import { OutlineModal } from "./OutlineModal.js";
 import { ProjectSetup } from "./ProjectSetup.js";
+import { BookView } from "./BookView.js";
 
 export function Workspace({ projectId, onExit }: { projectId: string; onExit: () => void }) {
   const [project, setProject] = useState<Project | null>(null);
@@ -13,6 +14,7 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
   const [entities, setEntities] = useState<Entity[]>([]);
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showOutline, setShowOutline] = useState(false);
+  const [showBook, setShowBook] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const nodeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -137,6 +139,12 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
           >
             Outline
           </button>
+          <button
+            onClick={() => setShowBook(true)}
+            className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100"
+          >
+            Book view
+          </button>
         </div>
       </header>
 
@@ -194,6 +202,8 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
           onInsert={insertOutline}
         />
       )}
+
+      {showBook && <BookView project={project} nodes={nodes} onClose={() => setShowBook(false)} />}
     </div>
   );
 }
