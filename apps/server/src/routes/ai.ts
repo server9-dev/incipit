@@ -14,6 +14,7 @@ import {
 } from "@incipit/shared";
 import { getModel } from "../ai.js";
 import { projects, nodes, entities, stripHtml } from "../db.js";
+import { relevantEntities } from "../retrieval.js";
 
 export const aiRoutes = new Hono();
 
@@ -36,9 +37,22 @@ aiRoutes.post("/draft", async (c) => {
   // content is stored as HTML; the model should see plain prose
   const plainContent = stripHtml(node.content);
   const allEntities = entities.listByProject(projectId);
-  const selected = entityIds?.length
-    ? allEntities.filter((e) => entityIds.includes(e.id))
-    : autoEntities(allEntities, node.synopsis, plainContent, instruction ?? "");
+
+  let selected: Entity[];
+  if (entityIds?.length) {
+    selected = allEntities.filter((e) => entityIds.includes(e.id));
+  } else {
+    // union explicit name-matches with semantic retrieval (best-effort)
+    const explicit = autoEntities(allEntities, node.synopsis, plainContent, instruction ?? "");
+    const byId = new Map(explicit.map((e) => [e.id, e]));
+    try {
+      const query = `${node.title}. ${node.synopsis}. ${plainContent.slice(0, 1500)} ${instruction ?? ""}`;
+      for (const e of await relevantEntities(projectId, query)) byId.set(e.id, e);
+    } catch {
+      /* embeddings unavailable — fall back to name-match only */
+    }
+    selected = [...byId.values()];
+  }
 
   const prompt = buildDraftPrompt({
     project,

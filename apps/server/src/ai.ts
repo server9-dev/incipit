@@ -1,7 +1,7 @@
 import { createOpenAI } from "@ai-sdk/openai";
 import { createAnthropic } from "@ai-sdk/anthropic";
 import { createGoogleGenerativeAI } from "@ai-sdk/google";
-import type { LanguageModel } from "ai";
+import type { LanguageModel, EmbeddingModel } from "ai";
 
 /**
  * Provider-agnostic model resolution.
@@ -65,7 +65,39 @@ export function getModel(): LanguageModel {
   }
 }
 
+/** Per-provider default text-embedding model (null = no embeddings available). */
+const DEFAULT_EMBED: Record<ProviderName, string | null> = {
+  ollama: "nomic-embed-text",
+  openai: "text-embedding-3-small",
+  google: "text-embedding-004",
+  anthropic: null, // Anthropic has no embeddings API
+};
+
+/** Provider-agnostic embedding model, or null when the provider has none. */
+export function getEmbeddingModel(): EmbeddingModel<string> | null {
+  const provider = resolveProvider();
+  const id = process.env.EMBED_MODEL ?? DEFAULT_EMBED[provider];
+  if (!id) return null;
+  switch (provider) {
+    case "ollama":
+      return createOpenAI({
+        baseURL: process.env.OLLAMA_BASE_URL ?? "http://localhost:11434/v1",
+        apiKey: "ollama",
+      }).textEmbeddingModel(id);
+    case "openai":
+      return createOpenAI({ apiKey: process.env.OPENAI_API_KEY, baseURL: process.env.OPENAI_BASE_URL }).textEmbeddingModel(id);
+    case "google":
+      return createGoogleGenerativeAI({ apiKey: process.env.GOOGLE_GENERATIVE_AI_API_KEY }).textEmbeddingModel(id);
+    case "anthropic":
+      return null;
+  }
+}
+
 export function activeConfig() {
   const provider = resolveProvider();
-  return { provider, model: process.env.AI_MODEL ?? DEFAULT_MODELS[provider] };
+  return {
+    provider,
+    model: process.env.AI_MODEL ?? DEFAULT_MODELS[provider],
+    embedModel: process.env.EMBED_MODEL ?? DEFAULT_EMBED[provider],
+  };
 }

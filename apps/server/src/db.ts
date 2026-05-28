@@ -65,6 +65,13 @@ db.exec(`
   CREATE INDEX IF NOT EXISTS idx_entities_project ON entities(project_id);
 `);
 
+// migration: cached embedding vector (JSON array) for story-bible retrieval
+{
+  const cols = db.prepare("PRAGMA table_info(entities)").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "embedding"))
+    db.exec("ALTER TABLE entities ADD COLUMN embedding TEXT NOT NULL DEFAULT ''");
+}
+
 const now = () => new Date().toISOString();
 /** Strip HTML tags/entities so word counts and prompts see plain prose. */
 const stripHtml = (s: string) =>
@@ -271,12 +278,29 @@ export const entities = {
   update(id: string, patch: Partial<Pick<Entity, "name" | "summary" | "notes">>): Entity | undefined {
     const cur = this.get(id);
     if (!cur) return undefined;
-    db.prepare("UPDATE entities SET name=?, summary=?, notes=?, updated_at=? WHERE id=?").run(
+    // clear cached embedding so it re-embeds on next retrieval
+    db.prepare("UPDATE entities SET name=?, summary=?, notes=?, embedding='', updated_at=? WHERE id=?").run(
       patch.name ?? cur.name, patch.summary ?? cur.summary, patch.notes ?? cur.notes, now(), id,
     );
     return this.get(id);
   },
   remove(id: string) {
     db.prepare("DELETE FROM entities WHERE id = ?").run(id);
+  },
+
+  /** Rows for retrieval: searchable text + cached vector (null if not embedded). */
+  embeddingRows(projectId: string): { id: string; text: string; vec: number[] | null }[] {
+    const rows = db
+      .prepare("SELECT id, name, summary, notes, embedding FROM entities WHERE project_id = ?")
+      .all(projectId) as { id: string; name: string; summary: string; notes: string; embedding: string }[];
+    return rows.map((r) => ({
+      id: r.id,
+      text: `${r.name}. ${r.summary} ${r.notes}`.trim(),
+      vec: r.embedding ? (JSON.parse(r.embedding) as number[]) : null,
+    }));
+  },
+
+  setEmbedding(id: string, vec: number[]) {
+    db.prepare("UPDATE entities SET embedding = ? WHERE id = ?").run(JSON.stringify(vec), id);
   },
 };
