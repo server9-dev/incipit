@@ -1,0 +1,22 @@
+{
+  "name": "firstdraft-oss",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Open-source, local-first, provider-agnostic AI writing assistant",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "pnpm --parallel --filter ./apps/* dev",
+    "dev:server": "pnpm --filter @firstdraft/server dev",
+    "dev:web": "pnpm --filter @firstdraft/web dev",
+    "build": "pnpm -r build",
+    "typecheck": "pnpm -r typecheck"
+  },
+  "packageManager": "pnpm@10.29.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["better-sqlite3", "esbuild"]
+  }
+}

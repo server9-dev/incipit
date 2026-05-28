@@ -1,0 +1,11 @@
+# Gemma 3 12B tuned for long-form non-fiction writing in firstdraft-oss.
+# Key purpose: bake in a real context window (Ollama otherwise defaults num_ctx
+# to ~2k regardless of the model's 128k ceiling) plus prose-friendly sampling.
+#
+# Build with:  ollama create gemma3-writer -f models/gemma3-writer.Modelfile
+FROM gemma3:12b
+
+PARAMETER num_ctx 16384
+PARAMETER temperature 0.7
+PARAMETER top_p 0.9
+PARAMETER repeat_penalty 1.05
