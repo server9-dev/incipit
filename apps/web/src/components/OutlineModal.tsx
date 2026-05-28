@@ -1,16 +1,19 @@
 import { useState } from "react";
 import { OUTLINE_FRAMEWORK_LABELS, type OutlineFramework } from "@incipit/shared";
 import { outline as outlineApi } from "../api.js";
+import { localOutlineScaffold } from "../localcraft.js";
 
 const FRAMEWORKS = Object.keys(OUTLINE_FRAMEWORK_LABELS) as OutlineFramework[];
 
 export function OutlineModal({
   projectId,
+  connected,
   defaultPremise,
   onClose,
   onInsert,
 }: {
   projectId: string;
+  connected: boolean;
   defaultPremise: string;
   onClose: () => void;
   onInsert: (title: string, content: string) => void;
@@ -22,6 +25,11 @@ export function OutlineModal({
 
   async function generate() {
     if (!premise.trim() || busy) return;
+    // offline: drop in a fillable beat-sheet scaffold instead of generating
+    if (!connected) {
+      setResult(localOutlineScaffold(framework, premise));
+      return;
+    }
     setBusy(true);
     setResult("");
     let acc = "";
@@ -66,7 +74,7 @@ export function OutlineModal({
               disabled={busy || !premise.trim()}
               className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-ink hover:bg-brand-dark disabled:opacity-40"
             >
-              {busy ? "Generating…" : "Generate"}
+              {busy ? "Generating…" : connected ? "Generate" : "Scaffold (offline)"}
             </button>
           </div>
           <textarea

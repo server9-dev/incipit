@@ -10,6 +10,7 @@ import { draft as draftApi, refine as refineApi, transcribe as transcribeApi } f
 import { SuggestionReview } from "./SuggestionReview.js";
 import { HandwriteCanvas, type Ink } from "./HandwriteCanvas.js";
 import { initialHtml, textToHtml, textToInlineHtml } from "../richtext.js";
+import { LOCAL_REFINE } from "../localcraft.js";
 
 const REFINE_ORDER: RefineAction[] = [
   "show_dont_tell",
@@ -54,6 +55,7 @@ type Proposal = {
 export function Editor({
   node,
   projectId,
+  connected,
   onContentChange,
   onSynopsisChange,
   onTitleChange,
@@ -62,6 +64,7 @@ export function Editor({
 }: {
   node: StoryNode;
   projectId: string;
+  connected: boolean;
   onContentChange: (v: string) => void;
   onSynopsisChange: (v: string) => void;
   onTitleChange: (v: string) => void;
@@ -170,6 +173,17 @@ export function Editor({
     const original = wholeDoc ? editor.getText() : editor.state.doc.textBetween(from, to, "\n");
     if (!original.trim()) return;
 
+    // offline: only the heuristic refines work, and they run locally + instantly
+    if (!connected) {
+      const local = LOCAL_REFINE[action];
+      if (!local) {
+        alert(`"${REFINE_LABELS[action]}" needs a model. Connect one in settings (top-right), or use Proofread / Tighten offline.`);
+        return;
+      }
+      setProposal({ from, to, original, proposed: local(original), label: `${REFINE_LABELS[action]} (offline)`, block: wholeDoc });
+      return;
+    }
+
     setGen(REFINE_LABELS[action]);
     setStream("");
     let acc = "";
@@ -255,6 +269,7 @@ export function Editor({
           <AiBar
             isVerse={isVerse}
             busy={busy}
+            connected={connected}
             drafting={gen === "Drafting"}
             hasContent={!!editor && editor.getText().trim() !== ""}
             hasInk={!!node.ink}
@@ -386,6 +401,7 @@ function FormatBar({
 function AiBar({
   isVerse,
   busy,
+  connected,
   drafting,
   hasContent,
   hasInk,
@@ -395,6 +411,7 @@ function AiBar({
 }: {
   isVerse: boolean;
   busy: boolean;
+  connected: boolean;
   drafting: boolean;
   hasContent: boolean;
   hasInk: boolean;
@@ -402,37 +419,40 @@ function AiBar({
   onRefine: (a: RefineAction) => void;
   onHandwrite: () => void;
 }) {
+  const offlineOk = (a: RefineAction) => a === "proofread" || a === "tighten";
   return (
     <div className="flex flex-wrap items-center gap-1.5 border-b border-linesoft bg-surface/60 px-4 py-2">
       <button
         onClick={() => onDraft("draft")}
-        disabled={busy}
+        disabled={busy || !connected}
+        title={!connected ? "Needs a model — connect one in settings (top-right)" : undefined}
         className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink hover:bg-brand-dark disabled:opacity-40"
       >
         {drafting ? "Drafting…" : isVerse ? "Draft verse" : "Draft scene"}
       </button>
       <button
         onClick={() => onDraft("continue")}
-        disabled={busy || !hasContent}
+        disabled={busy || !connected || !hasContent}
         className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated disabled:opacity-40"
       >
         Continue
       </button>
       <button
         onClick={onHandwrite}
-        disabled={busy}
+        disabled={busy || !connected}
         className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated disabled:opacity-40"
-        title="Handwrite with pen or touch, then transcribe to text"
+        title={!connected ? "Handwriting transcription needs a vision model" : "Handwrite with pen or touch, then transcribe to text"}
       >
         ✍ Handwrite{hasInk ? " •" : ""}
       </button>
       <span className="mx-1 h-4 w-px bg-elevated" />
-      <span className="text-[11px] text-mute">Suggest on selection:</span>
+      <span className="text-[11px] text-mute">{connected ? "Suggest on selection:" : "Offline — proofread & tighten only:"}</span>
       {REFINE_ORDER.map((a) => (
         <button
           key={a}
           onClick={() => onRefine(a)}
-          disabled={busy}
+          disabled={busy || (!connected && !offlineOk(a))}
+          title={!connected && !offlineOk(a) ? "Needs a model" : undefined}
           className="rounded-md border border-line px-2 py-1 text-[11px] font-medium text-dim hover:bg-elevated disabled:opacity-40"
         >
           {REFINE_LABELS[a]}

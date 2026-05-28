@@ -46,7 +46,7 @@ export default function App() {
 
       <div className="min-h-0 flex-1">
         {projectId ? (
-          <Workspace projectId={projectId} onExit={() => setProjectId(null)} />
+          <Workspace projectId={projectId} connected={connected} onExit={() => setProjectId(null)} />
         ) : (
           <ProjectList onOpen={setProjectId} />
         )}

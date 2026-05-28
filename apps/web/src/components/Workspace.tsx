@@ -11,7 +11,7 @@ import { BookView } from "./BookView.js";
 // Excalidraw is heavy — load it only when the storyboard opens
 const StoryboardModal = lazy(() => import("./StoryboardModal.js").then((m) => ({ default: m.StoryboardModal })));
 
-export function Workspace({ projectId, onExit }: { projectId: string; onExit: () => void }) {
+export function Workspace({ projectId, connected, onExit }: { projectId: string; connected: boolean; onExit: () => void }) {
   const [project, setProject] = useState<Project | null>(null);
   const [nodes, setNodes] = useState<StoryNode[]>([]);
   const [entities, setEntities] = useState<Entity[]>([]);
@@ -181,6 +181,7 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
               key={selected.id}
               node={selected}
               projectId={projectId}
+              connected={connected}
               onContentChange={(v) => patchNodeLocal(selected.id, { content: v })}
               onSynopsisChange={(v) => patchNodeLocal(selected.id, { synopsis: v })}
               onTitleChange={(v) => patchNodeLocal(selected.id, { title: v })}
@@ -208,6 +209,7 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
       {showOutline && (
         <OutlineModal
           projectId={projectId}
+          connected={connected}
           defaultPremise={project.synopsis}
           onClose={() => setShowOutline(false)}
           onInsert={insertOutline}
