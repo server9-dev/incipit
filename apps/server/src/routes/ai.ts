@@ -13,7 +13,7 @@ import {
   type Entity,
 } from "@incipit/shared";
 import { getModel } from "../ai.js";
-import { projects, nodes, entities } from "../db.js";
+import { projects, nodes, entities, stripHtml } from "../db.js";
 
 export const aiRoutes = new Hono();
 
@@ -33,17 +33,19 @@ aiRoutes.post("/draft", async (c) => {
   const node = nodes.get(nodeId);
   if (!project || !node) return c.json({ error: "Project or node not found" }, 404);
 
+  // content is stored as HTML; the model should see plain prose
+  const plainContent = stripHtml(node.content);
   const allEntities = entities.listByProject(projectId);
   const selected = entityIds?.length
     ? allEntities.filter((e) => entityIds.includes(e.id))
-    : autoEntities(allEntities, node.synopsis, node.content, instruction ?? "");
+    : autoEntities(allEntities, node.synopsis, plainContent, instruction ?? "");
 
   const prompt = buildDraftPrompt({
     project,
-    node,
+    node: { ...node, content: plainContent },
     mode,
     entities: selected,
-    precedingText: node.content,
+    precedingText: plainContent,
     instruction,
   });
 

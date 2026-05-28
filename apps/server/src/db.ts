@@ -66,7 +66,21 @@ db.exec(`
 `);
 
 const now = () => new Date().toISOString();
-const countWords = (s: string) => (s.trim() ? s.trim().split(/\s+/).length : 0);
+/** Strip HTML tags/entities so word counts and prompts see plain prose. */
+const stripHtml = (s: string) =>
+  s
+    .replace(/<[^>]+>/g, " ")
+    .replace(/&nbsp;/g, " ")
+    .replace(/&amp;/g, "&")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/\s+/g, " ")
+    .trim();
+const countWords = (s: string) => {
+  const t = stripHtml(s);
+  return t ? t.split(/\s+/).length : 0;
+};
+export { stripHtml };
 
 /* ---------------------------- projects ---------------------------- */
 

@@ -2,19 +2,20 @@ import { useMemo, useState } from "react";
 import { buildSegments, resolveSegments, countChanges, type Segment } from "../diff.js";
 
 export function SuggestionReview({
-  before,
+  before = "",
   original,
   proposed,
-  after,
+  after = "",
   label,
   onApply,
   onCancel,
 }: {
-  before: string;
+  before?: string;
   original: string;
   proposed: string;
-  after: string;
+  after?: string;
   label: string;
+  /** receives the resolved text (before + resolved region + after) */
   onApply: (finalContent: string) => void;
   onCancel: () => void;
 }) {

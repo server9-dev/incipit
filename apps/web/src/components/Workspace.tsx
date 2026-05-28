@@ -16,6 +16,7 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
   const [saving, setSaving] = useState(false);
 
   const nodeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
+  const nodePending = useRef<Map<string, Partial<StoryNode>>>(new Map());
   const entityTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
 
   useEffect(() => {
@@ -30,20 +31,28 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
 
   const selected = nodes.find((n) => n.id === selectedId) ?? null;
 
-  /* ----- node editing with debounced persistence ----- */
+  /* ----- node editing with debounced, patch-accumulating persistence ----- */
+  async function flushNode(id: string) {
+    const timers = nodeTimers.current;
+    if (timers.has(id)) {
+      clearTimeout(timers.get(id)!);
+      timers.delete(id);
+    }
+    const patch = nodePending.current.get(id);
+    if (!patch) return;
+    nodePending.current.delete(id);
+    const cur = (await api.updateNode(id, patch).catch(() => null)) as StoryNode | null;
+    if (cur) setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, wordCount: cur.wordCount } : n)));
+    if (nodePending.current.size === 0) setSaving(false);
+  }
+
   function patchNodeLocal(id: string, patch: Partial<StoryNode>) {
     setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+    nodePending.current.set(id, { ...nodePending.current.get(id), ...patch });
     const timers = nodeTimers.current;
     if (timers.has(id)) clearTimeout(timers.get(id)!);
     setSaving(true);
-    timers.set(
-      id,
-      setTimeout(async () => {
-        const cur = (await api.updateNode(id, patch).catch(() => null)) as StoryNode | null;
-        if (cur) setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, wordCount: cur.wordCount } : n)));
-        setSaving(false);
-      }, 600),
-    );
+    timers.set(id, setTimeout(() => void flushNode(id), 600));
   }
 
   async function addNode(parent: StoryNode | null, type: NodeType) {
@@ -157,6 +166,7 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
               onContentChange={(v) => patchNodeLocal(selected.id, { content: v })}
               onSynopsisChange={(v) => patchNodeLocal(selected.id, { synopsis: v })}
               onTitleChange={(v) => patchNodeLocal(selected.id, { title: v })}
+              onForceSave={() => void flushNode(selected.id)}
             />
           ) : selected ? (
             <FolderView node={selected} onTitle={(v) => patchNodeLocal(selected.id, { title: v })} />
