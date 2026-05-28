@@ -10,6 +10,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@excalidraw/excalidraw": "^0.18.1",
     "@fontsource/eb-garamond": "^5.2.7",
     "@incipit/shared": "workspace:*",
     "@tiptap/extension-highlight": "^3.23.6",

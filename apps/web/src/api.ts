@@ -61,6 +61,14 @@ export const fetchProjectFull = (id: string) =>
   fetch(`/api/projects/${id}/full`).then(
     json<{ project: Project; nodes: StoryNode[]; entities: Entity[] }>,
   );
+export const getStoryboard = (id: string) =>
+  fetch(`/api/projects/${id}/storyboard`).then(json<{ storyboard: string }>);
+export const saveStoryboard = (id: string, storyboard: string) =>
+  fetch(`/api/projects/${id}/storyboard`, {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ storyboard }),
+  });
 
 /* nodes */
 export const createNode = (input: { projectId: string; parentId: string | null; type: NodeType; title: string }) =>

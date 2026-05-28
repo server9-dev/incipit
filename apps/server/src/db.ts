@@ -78,6 +78,13 @@ db.exec(`
   if (!cols.some((c) => c.name === "ink")) db.exec("ALTER TABLE nodes ADD COLUMN ink TEXT NOT NULL DEFAULT ''");
 }
 
+// migration: per-project Excalidraw storyboard scene (JSON)
+{
+  const cols = db.prepare("PRAGMA table_info(projects)").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "storyboard"))
+    db.exec("ALTER TABLE projects ADD COLUMN storyboard TEXT NOT NULL DEFAULT ''");
+}
+
 const now = () => new Date().toISOString();
 /** Strip HTML tags/entities so word counts and prompts see plain prose. */
 const stripHtml = (s: string) =>
@@ -149,6 +156,13 @@ export const projects = {
   },
   remove(id: string) {
     db.prepare("DELETE FROM projects WHERE id = ?").run(id);
+  },
+  getStoryboard(id: string): string {
+    const r = db.prepare("SELECT storyboard FROM projects WHERE id = ?").get(id) as { storyboard: string } | undefined;
+    return r?.storyboard ?? "";
+  },
+  setStoryboard(id: string, json: string) {
+    db.prepare("UPDATE projects SET storyboard = ?, updated_at = ? WHERE id = ?").run(json, now(), id);
   },
 };
 

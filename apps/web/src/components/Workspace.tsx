@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { Project, StoryNode, Entity, NodeType, EntityType } from "@incipit/shared";
 import * as api from "../api.js";
 import { ManuscriptTree } from "./ManuscriptTree.js";
@@ -8,6 +8,9 @@ import { OutlineModal } from "./OutlineModal.js";
 import { ProjectSetup } from "./ProjectSetup.js";
 import { BookView } from "./BookView.js";
 
+// Excalidraw is heavy — load it only when the storyboard opens
+const StoryboardModal = lazy(() => import("./StoryboardModal.js").then((m) => ({ default: m.StoryboardModal })));
+
 export function Workspace({ projectId, onExit }: { projectId: string; onExit: () => void }) {
   const [project, setProject] = useState<Project | null>(null);
   const [nodes, setNodes] = useState<StoryNode[]>([]);
@@ -15,6 +18,7 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [showOutline, setShowOutline] = useState(false);
   const [showBook, setShowBook] = useState(false);
+  const [showStoryboard, setShowStoryboard] = useState(false);
   const [saving, setSaving] = useState(false);
 
   const nodeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -140,6 +144,12 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
             Outline
           </button>
           <button
+            onClick={() => setShowStoryboard(true)}
+            className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated"
+          >
+            Storyboard
+          </button>
+          <button
             onClick={() => setShowBook(true)}
             className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated"
           >
@@ -205,6 +215,12 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
       )}
 
       {showBook && <BookView project={project} nodes={nodes} onClose={() => setShowBook(false)} />}
+
+      {showStoryboard && (
+        <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-void text-mute">Loading storyboard…</div>}>
+          <StoryboardModal projectId={projectId} onClose={() => setShowStoryboard(false)} />
+        </Suspense>
+      )}
     </div>
   );
 }

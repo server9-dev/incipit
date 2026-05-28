@@ -32,6 +32,17 @@ projectRoutes.put("/:id", async (c) => {
   return p ? c.json(p) : c.json({ error: "Not found" }, 404);
 });
 
+projectRoutes.get("/:id/storyboard", (c) => {
+  if (!projects.get(c.req.param("id"))) return c.json({ error: "Not found" }, 404);
+  return c.json({ storyboard: projects.getStoryboard(c.req.param("id")) });
+});
+
+projectRoutes.put("/:id/storyboard", async (c) => {
+  const body = (await c.req.json().catch(() => ({}))) as { storyboard?: string };
+  projects.setStoryboard(c.req.param("id"), body.storyboard ?? "");
+  return c.json({ ok: true });
+});
+
 projectRoutes.delete("/:id", (c) => {
   projects.remove(c.req.param("id"));
   return c.body(null, 204);
