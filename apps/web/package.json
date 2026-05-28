@@ -10,8 +10,8 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
-    "@incipit/shared": "workspace:*",
     "@fontsource/eb-garamond": "^5.2.7",
+    "@incipit/shared": "workspace:*",
     "react": "^18.3.1",
     "react-dom": "^18.3.1"
   },
