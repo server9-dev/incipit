@@ -1,5 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { Project, StoryNode } from "@incipit/shared";
+import { buildEpub, downloadBlob } from "../epub.js";
 
 /* Standard US trim sizes (inches). */
 const TRIMS = [
@@ -82,6 +83,7 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
   const [trimIdx, setTrimIdx] = useState(3); // US Trade
   const [zoom, setZoom] = useState(0.85);
   const [pages, setPages] = useState<Item[][]>([]);
+  const [exporting, setExporting] = useState(false);
   const measureRef = useRef<HTMLDivElement>(null);
 
   const items = useMemo(() => buildItems(nodes), [nodes]);
@@ -129,9 +131,34 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
   const pageH = trim.h * PPI;
   const totalWords = nodes.reduce((s, n) => s + n.wordCount, 0);
 
+  function exportPdf() {
+    const style = document.createElement("style");
+    style.id = "book-print-page";
+    style.textContent = `@page { size: ${trim.w}in ${trim.h}in; margin: 0; }`;
+    document.head.appendChild(style);
+    const cleanup = () => {
+      style.remove();
+      window.removeEventListener("afterprint", cleanup);
+    };
+    window.addEventListener("afterprint", cleanup);
+    window.print();
+  }
+
+  async function exportEpub() {
+    setExporting(true);
+    try {
+      const blob = await buildEpub(project, nodes);
+      downloadBlob(blob, `${project.title || "manuscript"}.epub`);
+    } catch (e) {
+      alert("EPUB export failed: " + e);
+    } finally {
+      setExporting(false);
+    }
+  }
+
   return (
-    <div className="fixed inset-0 z-50 flex flex-col bg-neutral-100">
-      <div className="flex items-center gap-3 border-b border-neutral-300 bg-white px-4 py-2">
+    <div className="book-view-root fixed inset-0 z-50 flex flex-col bg-neutral-100">
+      <div className="book-toolbar flex items-center gap-3 border-b border-neutral-300 bg-white px-4 py-2">
         <span className="font-semibold text-neutral-900">{project.title}</span>
         <span className="text-xs text-neutral-400">Book view · {pages.length} pages · {totalWords.toLocaleString()} words</span>
         <select
@@ -148,12 +175,20 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
           <span className="w-10 text-center text-neutral-500">{Math.round(zoom * 100)}%</span>
           <button onClick={() => setZoom((z) => Math.min(1.5, +(z + 0.1).toFixed(2)))} className="rounded border border-neutral-300 px-2 py-1 hover:bg-neutral-100">+</button>
         </div>
-        <button onClick={onClose} className="ml-auto rounded-md bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-700">
-          Close
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <button onClick={exportPdf} className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100">
+            PDF
+          </button>
+          <button onClick={exportEpub} disabled={exporting} className="rounded-md border border-neutral-300 px-3 py-1 text-xs font-medium text-neutral-700 hover:bg-neutral-100 disabled:opacity-50">
+            {exporting ? "Exporting…" : "EPUB"}
+          </button>
+          <button onClick={onClose} className="rounded-md bg-neutral-900 px-3 py-1 text-xs font-medium text-white hover:bg-neutral-700">
+            Close
+          </button>
+        </div>
       </div>
 
-      <div className="flex-1 overflow-auto py-8">
+      <div className="book-scroll flex-1 overflow-auto py-8">
         <div className="flex flex-col items-center gap-6">
           {pages.length === 0 && <div className="mt-20 text-sm text-neutral-400">Nothing to preview yet — write some prose first.</div>}
           {pages.map((page, i) => (
@@ -184,7 +219,7 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
       </div>
 
       {/* offscreen measurer */}
-      <div ref={measureRef} className="book-prose" style={{ position: "absolute", left: -99999, top: 0, visibility: "hidden" }} />
+      <div ref={measureRef} className="book-prose book-measure" style={{ position: "absolute", left: -99999, top: 0, visibility: "hidden" }} />
     </div>
   );
 }

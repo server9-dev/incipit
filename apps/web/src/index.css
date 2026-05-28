@@ -136,3 +136,38 @@ body {
   margin: 1.1em 0;
   color: #6b7280;
 }
+
+/* ---- Print → PDF: one trim-sized sheet per physical page ---- */
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .book-view-root,
+  .book-view-root * {
+    visibility: visible;
+  }
+  .book-view-root {
+    position: absolute;
+    inset: 0;
+    background: #fff;
+  }
+  .book-toolbar,
+  .book-measure {
+    display: none !important;
+  }
+  .book-scroll {
+    overflow: visible !important;
+    padding: 0 !important;
+  }
+  .book-scroll > div {
+    display: block !important;
+    gap: 0 !important;
+  }
+  .book-page {
+    transform: none !important;
+    box-shadow: none !important;
+    margin: 0 !important;
+    break-after: page;
+    page-break-after: always;
+  }
+}
