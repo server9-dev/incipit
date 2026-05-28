@@ -2,10 +2,26 @@ import type {
   Project,
   ProjectType,
   StoryNode,
+  NodeType,
   Entity,
   OutlineFramework,
   RefineAction,
 } from "./types.js";
+
+/* ------------------------------------------------------------------ *
+ * Manuscript tree containment rules (shared by UI drop-zones + server)
+ * ------------------------------------------------------------------ */
+
+/** Which node types may live directly under a parent (null = top level). */
+export function allowedChildTypes(parent: NodeType | null): NodeType[] {
+  if (parent === null) return ["folder", "chapter", "scene", "poem"];
+  if (parent === "folder") return ["folder", "chapter", "poem"];
+  if (parent === "chapter") return ["scene"];
+  return []; // scene / poem are leaves
+}
+
+export const canContain = (parent: NodeType | null, child: NodeType): boolean =>
+  allowedChildTypes(parent).includes(child);
 
 /* ------------------------------------------------------------------ *
  * Project scaffolds — the starting tree for each project type.

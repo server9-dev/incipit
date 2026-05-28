@@ -5,6 +5,7 @@ import { dirname } from "node:path";
 import { nanoid } from "nanoid";
 import {
   SCAFFOLDS,
+  canContain,
   type Project,
   type ProjectType,
   type StoryNode,
@@ -174,6 +175,52 @@ export const nodes = {
   },
   remove(id: string) {
     db.prepare("DELETE FROM nodes WHERE id = ?").run(id);
+  },
+
+  /** All descendant ids of a node (for cycle prevention). */
+  descendantIds(id: string): Set<string> {
+    const out = new Set<string>();
+    const stack = [id];
+    while (stack.length) {
+      const cur = stack.pop()!;
+      const kids = db.prepare("SELECT id FROM nodes WHERE parent_id = ?").all(cur) as { id: string }[];
+      for (const k of kids)
+        if (!out.has(k.id)) {
+          out.add(k.id);
+          stack.push(k.id);
+        }
+    }
+    return out;
+  },
+
+  /**
+   * Move a node under `newParentId` at position `index` among its new
+   * siblings, reindexing the whole sibling group atomically. No-ops (returns
+   * false) on a type-rule violation or a cycle.
+   */
+  move(id: string, newParentId: string | null, index: number): boolean {
+    const node = this.get(id);
+    if (!node) return false;
+    if (newParentId === id) return false;
+
+    const parentType = newParentId ? (this.get(newParentId)?.type ?? null) : null;
+    if (newParentId && parentType === null) return false; // parent vanished
+    if (!canContain(parentType, node.type)) return false;
+    if (newParentId && this.descendantIds(id).has(newParentId)) return false; // cycle
+
+    const tx = db.transaction(() => {
+      db.prepare("UPDATE nodes SET parent_id = ?, updated_at = ? WHERE id = ?").run(newParentId, now(), id);
+      const sibs = (
+        db
+          .prepare("SELECT id FROM nodes WHERE project_id = ? AND parent_id IS ? AND id != ? ORDER BY sort_order ASC")
+          .all(node.projectId, newParentId, id) as { id: string }[]
+      ).map((r) => r.id);
+      const at = Math.max(0, Math.min(index, sibs.length));
+      sibs.splice(at, 0, id);
+      sibs.forEach((sid, i) => db.prepare("UPDATE nodes SET sort_order = ? WHERE id = ?").run(i, sid));
+    });
+    tx();
+    return true;
   },
 };
 

@@ -27,6 +27,14 @@ nodeRoutes.put("/:id", async (c) => {
   return n ? c.json(n) : c.json({ error: "Not found" }, 404);
 });
 
+const moveSchema = z.object({ parentId: z.string().nullable(), index: z.number().int().min(0) });
+nodeRoutes.post("/:id/move", async (c) => {
+  const parsed = moveSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const ok = nodes.move(c.req.param("id"), parsed.data.parentId, parsed.data.index);
+  return c.json({ ok });
+});
+
 nodeRoutes.delete("/:id", (c) => {
   nodes.remove(c.req.param("id"));
   return c.body(null, 204);

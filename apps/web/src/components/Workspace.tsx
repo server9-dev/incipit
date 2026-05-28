@@ -68,6 +68,12 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
     }
   }
 
+  async function moveNode(nodeId: string, parentId: string | null, index: number) {
+    await api.moveNode(nodeId, parentId, index);
+    const { nodes: fresh } = await api.fetchProjectFull(projectId);
+    setNodes(fresh);
+  }
+
   /* ----- project settings ----- */
   function patchProject(patch: Partial<Project>) {
     if (!project) return;
@@ -138,6 +144,7 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
             onAdd={addNode}
             onAddRoot={(type) => addNode(null, type)}
             onDelete={removeNode}
+            onMove={moveNode}
           />
         </aside>
 

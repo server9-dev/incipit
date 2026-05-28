@@ -55,6 +55,12 @@ export const updateNode = (
     body: JSON.stringify(patch),
   }).then(json<StoryNode>);
 export const deleteNode = (id: string) => fetch(`/api/nodes/${id}`, { method: "DELETE" });
+export const moveNode = (id: string, parentId: string | null, index: number) =>
+  fetch(`/api/nodes/${id}/move`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ parentId, index }),
+  }).then(json<{ ok: boolean }>);
 
 /* entities */
 export const createEntity = (input: { projectId: string; type: EntityType; name: string }) =>
