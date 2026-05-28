@@ -6,7 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --parallel --filter ./apps/* dev",
+    "dev": "pnpm --parallel --filter @firstdraft/server --filter @firstdraft/web dev",
     "dev:server": "pnpm --filter @firstdraft/server dev",
     "dev:web": "pnpm --filter @firstdraft/web dev",
     "build": "pnpm -r build",

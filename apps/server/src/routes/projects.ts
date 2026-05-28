@@ -1,0 +1,38 @@
+import { Hono } from "hono";
+import { z } from "zod";
+import { projectTypeSchema } from "@firstdraft/shared";
+import { projects, nodes, entities } from "../db.js";
+
+export const projectRoutes = new Hono();
+
+projectRoutes.get("/", (c) => c.json(projects.list()));
+
+const createSchema = z.object({ title: z.string().min(1), type: projectTypeSchema });
+projectRoutes.post("/", async (c) => {
+  const parsed = createSchema.safeParse(await c.req.json().catch(() => ({})));
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  return c.json(projects.create(parsed.data.title, parsed.data.type), 201);
+});
+
+projectRoutes.get("/:id", (c) => {
+  const p = projects.get(c.req.param("id"));
+  return p ? c.json(p) : c.json({ error: "Not found" }, 404);
+});
+
+/** Full project payload for the editor: project + tree + bible. */
+projectRoutes.get("/:id/full", (c) => {
+  const id = c.req.param("id");
+  const project = projects.get(id);
+  if (!project) return c.json({ error: "Not found" }, 404);
+  return c.json({ project, nodes: nodes.listByProject(id), entities: entities.listByProject(id) });
+});
+
+projectRoutes.put("/:id", async (c) => {
+  const p = projects.update(c.req.param("id"), await c.req.json());
+  return p ? c.json(p) : c.json({ error: "Not found" }, 404);
+});
+
+projectRoutes.delete("/:id", (c) => {
+  projects.remove(c.req.param("id"));
+  return c.body(null, 204);
+});

@@ -1,48 +1,81 @@
 import { Hono } from "hono";
 import { streamText } from "ai";
 import {
-  generateRequestSchema,
+  draftRequestSchema,
+  outlineRequestSchema,
   refineRequestSchema,
-  getTemplate,
-  renderPrompt,
-  type RefineAction,
+  buildDraftPrompt,
+  buildOutlinePrompt,
+  DRAFT_SYSTEM,
+  OUTLINE_SYSTEM,
+  REFINE_SYSTEM,
+  refineUserPrompt,
+  type Entity,
 } from "@firstdraft/shared";
 import { getModel } from "../ai.js";
+import { projects, nodes, entities } from "../db.js";
 
 export const aiRoutes = new Hono();
 
-/** Generate a fresh draft from a template + filled-in field values. */
-aiRoutes.post("/generate", async (c) => {
-  const parsed = generateRequestSchema.safeParse(await c.req.json());
+/** Pick entities mentioned by name in a blob of text (cheap auto-context). */
+function autoEntities(all: Entity[], ...texts: string[]): Entity[] {
+  const hay = texts.join(" ").toLowerCase();
+  return all.filter((e) => e.name && hay.includes(e.name.toLowerCase()));
+}
+
+/** Draft or continue prose for a node, grounded in project voice + bible. */
+aiRoutes.post("/draft", async (c) => {
+  const parsed = draftRequestSchema.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const { projectId, nodeId, mode, instruction, entityIds } = parsed.data;
 
-  const template = getTemplate(parsed.data.templateId);
-  if (!template) return c.json({ error: "Unknown template" }, 404);
+  const project = projects.get(projectId);
+  const node = nodes.get(nodeId);
+  if (!project || !node) return c.json({ error: "Project or node not found" }, 404);
 
-  const prompt = renderPrompt(template, parsed.data.values);
-  const result = streamText({ model: getModel(), system: template.system, prompt });
+  const allEntities = entities.listByProject(projectId);
+  const selected = entityIds?.length
+    ? allEntities.filter((e) => entityIds.includes(e.id))
+    : autoEntities(allEntities, node.synopsis, node.content, instruction ?? "");
+
+  const prompt = buildDraftPrompt({
+    project,
+    node,
+    mode,
+    entities: selected,
+    precedingText: node.content,
+    instruction,
+  });
+
+  const result = streamText({ model: getModel(), system: DRAFT_SYSTEM, prompt });
   return result.toTextStreamResponse();
 });
 
-const REFINE_SYSTEM: Record<RefineAction, string> = {
-  paraphrase: "Rewrite the user's text to express the same meaning in different words. Return only the rewritten text.",
-  summarize: "Summarize the user's text concisely without adding information. Return only the summary.",
-  translate: "Translate the user's text. Return only the translation.",
-  proofread: "Correct grammar, spelling, and punctuation in the user's text while preserving voice and meaning. Return only the corrected text.",
-  rewrite: "Improve the clarity and flow of the user's text. Return only the rewritten text.",
-  shorten: "Make the user's text more concise while keeping its meaning. Return only the shortened text.",
-  expand: "Expand the user's text with more detail and supporting points. Return only the expanded text.",
-};
+/** Generate a beat-sheet outline for a project. */
+aiRoutes.post("/outline", async (c) => {
+  const parsed = outlineRequestSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const { projectId, framework, premise } = parsed.data;
 
-/** Refine a selection of text. Output is meant to feed a suggestion card. */
+  const project = projects.get(projectId);
+  if (!project) return c.json({ error: "Project not found" }, 404);
+
+  const prompt = buildOutlinePrompt({ project, framework, premise });
+  const result = streamText({ model: getModel(), system: OUTLINE_SYSTEM, prompt });
+  return result.toTextStreamResponse();
+});
+
+/** Fiction line-craft refine of a selected passage. */
 aiRoutes.post("/refine", async (c) => {
   const parsed = refineRequestSchema.safeParse(await c.req.json());
   if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  const { action, text, projectId } = parsed.data;
 
-  const { action, text, instruction } = parsed.data;
-  const system = REFINE_SYSTEM[action];
-  const prompt = instruction ? `${instruction}\n\n---\n${text}` : text;
-
-  const result = streamText({ model: getModel(), system, prompt });
+  const project = projectId ? projects.get(projectId) : undefined;
+  const result = streamText({
+    model: getModel(),
+    system: REFINE_SYSTEM[action],
+    prompt: refineUserPrompt(text, project),
+  });
   return result.toTextStreamResponse();
 });
