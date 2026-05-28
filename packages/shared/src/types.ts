@@ -47,8 +47,10 @@ export const nodeSchema = z.object({
   title: z.string(),
   /** short synopsis / scene brief shown in the outline and fed to the AI */
   synopsis: z.string().default(""),
-  /** prose body (markdown/plain text for now) */
+  /** prose body, stored as HTML */
   content: z.string().default(""),
+  /** preserved handwriting: JSON {w,h,strokes:[[{x,y}]]} of the original ink */
+  ink: z.string().default(""),
   /** sibling ordering */
   order: z.number(),
   wordCount: z.number().default(0),
@@ -149,6 +151,12 @@ export const REFINE_LABELS: Record<RefineAction, string> = {
   expand: "Expand",
   proofread: "Proofread",
 };
+
+/** Transcribe a handwriting image (PNG data URL) to text via a vision model. */
+export const transcribeRequestSchema = z.object({
+  image: z.string(), // data:image/png;base64,...
+});
+export type TranscribeRequest = z.infer<typeof transcribeRequestSchema>;
 
 export const refineRequestSchema = z.object({
   action: refineActionSchema,

@@ -16,7 +16,31 @@ async function json<T>(res: Response): Promise<T> {
 
 /* health */
 export const fetchHealth = () =>
-  fetch("/api/health").then(json<{ ok: boolean; ai: { provider: string; model: string } }>);
+  fetch("/api/health").then(
+    json<{ ok: boolean; ai: { provider: string; model: string }; connection: { connected: boolean; detail: string } }>,
+  );
+
+/* settings */
+export type AppSettings = {
+  provider: string;
+  model: string;
+  embedModel: string | null;
+  visionModel: string;
+  ollamaBaseUrl: string;
+  hasOpenaiKey: boolean;
+  hasAnthropicKey: boolean;
+  hasGoogleKey: boolean;
+  providers: string[];
+  ollamaModels: string[];
+  connection: { connected: boolean; detail: string };
+};
+export const getSettings = () => fetch("/api/settings").then(json<AppSettings>);
+export const updateSettings = (patch: Record<string, string>) =>
+  fetch("/api/settings", {
+    method: "PUT",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify(patch),
+  }).then(json<{ ok: boolean; connection: { connected: boolean; detail: string } }>);
 
 /* projects */
 export const listProjects = () => fetch("/api/projects").then(json<Project[]>);
@@ -47,7 +71,7 @@ export const createNode = (input: { projectId: string; parentId: string | null; 
   }).then(json<StoryNode>);
 export const updateNode = (
   id: string,
-  patch: Partial<Pick<StoryNode, "title" | "synopsis" | "content" | "order" | "parentId">>,
+  patch: Partial<Pick<StoryNode, "title" | "synopsis" | "content" | "ink" | "order" | "parentId">>,
 ) =>
   fetch(`/api/nodes/${id}`, {
     method: "PUT",
@@ -108,3 +132,10 @@ export const refine = (
   body: { action: RefineAction; text: string; projectId?: string },
   onChunk: (t: string) => void,
 ) => streamPost("/api/ai/refine", body, onChunk);
+
+export const transcribe = (image: string) =>
+  fetch("/api/ai/transcribe", {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ image }),
+  }).then(json<{ text: string }>);

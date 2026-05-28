@@ -174,6 +174,7 @@ export function Workspace({ projectId, onExit }: { projectId: string; onExit: ()
               onContentChange={(v) => patchNodeLocal(selected.id, { content: v })}
               onSynopsisChange={(v) => patchNodeLocal(selected.id, { synopsis: v })}
               onTitleChange={(v) => patchNodeLocal(selected.id, { title: v })}
+              onInkSave={(v) => patchNodeLocal(selected.id, { ink: v })}
               onForceSave={() => void flushNode(selected.id)}
             />
           ) : selected ? (

@@ -1,19 +1,30 @@
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { fetchHealth } from "./api.js";
 import { ProjectList } from "./components/ProjectList.js";
 import { Workspace } from "./components/Workspace.js";
+import { SettingsModal } from "./components/SettingsModal.js";
 
 export default function App() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [model, setModel] = useState("connecting…");
+  const [connected, setConnected] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
 
-  useEffect(() => {
+  const refresh = useCallback(() => {
     fetchHealth()
-      .then((h) => setModel(`${h.ai.provider}/${h.ai.model}`))
-      .catch(() => setModel("offline"));
+      .then((h) => {
+        setModel(`${h.ai.provider}/${h.ai.model}`);
+        setConnected(h.connection.connected);
+      })
+      .catch(() => {
+        setModel("offline");
+        setConnected(false);
+      });
   }, []);
 
-  const online = model !== "offline" && model !== "connecting…";
+  useEffect(() => {
+    refresh();
+  }, [refresh]);
 
   return (
     <div className="flex h-full flex-col bg-ink text-fg">
@@ -22,10 +33,15 @@ export default function App() {
           <span className="brand-gradient text-base font-semibold tracking-tight">Incipit</span>
           <span className="text-xs text-mute">fiction studio · local-first</span>
         </div>
-        <div className="flex items-center gap-2 text-xs text-dim">
-          <span className={`h-2 w-2 rounded-full ${online ? "bg-green-500" : "bg-red-500"}`} />
+        <button
+          onClick={() => setShowSettings(true)}
+          title="AI model & provider settings"
+          className="flex items-center gap-2 rounded-md border border-line px-2.5 py-1 text-xs text-dim hover:bg-elevated"
+        >
+          <span className={`h-2 w-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`} />
           {model}
-        </div>
+          <span className="text-mute">⚙</span>
+        </button>
       </header>
 
       <div className="min-h-0 flex-1">
@@ -35,6 +51,8 @@ export default function App() {
           <ProjectList onOpen={setProjectId} />
         )}
       </div>
+
+      {showSettings && <SettingsModal onClose={() => setShowSettings(false)} onSaved={refresh} />}
     </div>
   );
 }

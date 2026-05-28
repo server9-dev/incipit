@@ -72,6 +72,12 @@ db.exec(`
     db.exec("ALTER TABLE entities ADD COLUMN embedding TEXT NOT NULL DEFAULT ''");
 }
 
+// migration: preserved handwriting ink (JSON strokes) on nodes
+{
+  const cols = db.prepare("PRAGMA table_info(nodes)").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "ink")) db.exec("ALTER TABLE nodes ADD COLUMN ink TEXT NOT NULL DEFAULT ''");
+}
+
 const now = () => new Date().toISOString();
 /** Strip HTML tags/entities so word counts and prompts see plain prose. */
 const stripHtml = (s: string) =>
@@ -150,12 +156,12 @@ export const projects = {
 
 type NodeRow = {
   id: string; project_id: string; parent_id: string | null; type: string; title: string;
-  synopsis: string; content: string; sort_order: number; word_count: number;
+  synopsis: string; content: string; ink: string; sort_order: number; word_count: number;
   created_at: string; updated_at: string;
 };
 const toNode = (r: NodeRow): StoryNode => ({
   id: r.id, projectId: r.project_id, parentId: r.parent_id, type: r.type as NodeType,
-  title: r.title, synopsis: r.synopsis, content: r.content, order: r.sort_order,
+  title: r.title, synopsis: r.synopsis, content: r.content, ink: r.ink ?? "", order: r.sort_order,
   wordCount: r.word_count, createdAt: r.created_at, updatedAt: r.updated_at,
 });
 
@@ -181,14 +187,14 @@ export const nodes = {
     ).run(id, input.projectId, input.parentId, input.type, input.title, max.m + 1, t, t);
     return this.get(id)!;
   },
-  update(id: string, patch: Partial<Pick<StoryNode, "title" | "synopsis" | "content" | "order" | "parentId">>): StoryNode | undefined {
+  update(id: string, patch: Partial<Pick<StoryNode, "title" | "synopsis" | "content" | "ink" | "order" | "parentId">>): StoryNode | undefined {
     const cur = this.get(id);
     if (!cur) return undefined;
     const content = patch.content ?? cur.content;
     db.prepare(
-      `UPDATE nodes SET title=?, synopsis=?, content=?, sort_order=?, parent_id=?, word_count=?, updated_at=? WHERE id=?`,
+      `UPDATE nodes SET title=?, synopsis=?, content=?, ink=?, sort_order=?, parent_id=?, word_count=?, updated_at=? WHERE id=?`,
     ).run(
-      patch.title ?? cur.title, patch.synopsis ?? cur.synopsis, content,
+      patch.title ?? cur.title, patch.synopsis ?? cur.synopsis, content, patch.ink ?? cur.ink,
       patch.order ?? cur.order, patch.parentId !== undefined ? patch.parentId : cur.parentId,
       countWords(content), now(), id,
     );

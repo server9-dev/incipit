@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useEditor, EditorContent, type Editor as TiptapEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
@@ -6,8 +6,9 @@ import { TextStyle, FontFamily } from "@tiptap/extension-text-style";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
 import { REFINE_LABELS, type StoryNode, type RefineAction } from "@incipit/shared";
-import { draft as draftApi, refine as refineApi } from "../api.js";
+import { draft as draftApi, refine as refineApi, transcribe as transcribeApi } from "../api.js";
 import { SuggestionReview } from "./SuggestionReview.js";
+import { HandwriteCanvas, type Ink } from "./HandwriteCanvas.js";
 import { initialHtml, textToHtml, textToInlineHtml } from "../richtext.js";
 
 const REFINE_ORDER: RefineAction[] = [
@@ -56,6 +57,7 @@ export function Editor({
   onContentChange,
   onSynopsisChange,
   onTitleChange,
+  onInkSave,
   onForceSave,
 }: {
   node: StoryNode;
@@ -63,6 +65,7 @@ export function Editor({
   onContentChange: (v: string) => void;
   onSynopsisChange: (v: string) => void;
   onTitleChange: (v: string) => void;
+  onInkSave: (ink: string) => void;
   onForceSave: () => void;
 }) {
   const isVerse = node.type === "poem";
@@ -74,6 +77,15 @@ export function Editor({
   useEffect(() => {
     localStorage.setItem("incipit-paper", paperKey);
   }, [paperKey]);
+  const [handwriting, setHandwriting] = useState(false);
+  const initialInk = useMemo<Ink | null>(() => {
+    try {
+      return node.ink ? (JSON.parse(node.ink) as Ink) : null;
+    } catch {
+      return null;
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [node.id]);
 
   const editor = useEditor({
     extensions: [
@@ -174,6 +186,24 @@ export function Editor({
     }
   }
 
+  async function runTranscribe(png: string) {
+    if (busy || !editor) return;
+    setGen("Transcribing");
+    setStream("");
+    try {
+      const { text } = await transcribeApi(png);
+      if (text.trim()) {
+        const end = editor.state.doc.content.size;
+        setProposal({ from: end, to: end, original: "", proposed: text, label: "handwriting", block: true });
+      }
+      setHandwriting(false);
+    } catch (e) {
+      alert("Transcription failed (need a vision model — add an API key or pull one): " + e);
+    } finally {
+      setGen(null);
+    }
+  }
+
   function applyProposal(resolved: string) {
     if (!editor || !proposal) return;
     const html = proposal.block ? textToHtml(resolved, isVerse) : textToInlineHtml(resolved);
@@ -210,10 +240,28 @@ export function Editor({
         />
       ) : busy && gen !== "Drafting" ? (
         <GeneratingView label={gen!} text={stream} paper={paper} />
+      ) : handwriting ? (
+        <HandwriteCanvas
+          initial={initialInk}
+          paper={paper}
+          busy={busy}
+          onSaveInk={(ink) => onInkSave(JSON.stringify(ink))}
+          onTranscribe={runTranscribe}
+          onClose={() => setHandwriting(false)}
+        />
       ) : (
         <>
           {editor && <FormatBar editor={editor} onSave={onForceSave} paperKey={paperKey} onPaper={setPaperKey} />}
-          <AiBar isVerse={isVerse} busy={busy} drafting={gen === "Drafting"} hasContent={!!editor && editor.getText().trim() !== ""} onDraft={runDraft} onRefine={runRefine} />
+          <AiBar
+            isVerse={isVerse}
+            busy={busy}
+            drafting={gen === "Drafting"}
+            hasContent={!!editor && editor.getText().trim() !== ""}
+            hasInk={!!node.ink}
+            onDraft={runDraft}
+            onRefine={runRefine}
+            onHandwrite={() => setHandwriting(true)}
+          />
           <div className="flex-1 overflow-y-auto" style={{ background: paper.bg, color: paper.fg }}>
             <EditorContent editor={editor} className="h-full" />
           </div>
@@ -340,15 +388,19 @@ function AiBar({
   busy,
   drafting,
   hasContent,
+  hasInk,
   onDraft,
   onRefine,
+  onHandwrite,
 }: {
   isVerse: boolean;
   busy: boolean;
   drafting: boolean;
   hasContent: boolean;
+  hasInk: boolean;
   onDraft: (mode: "draft" | "continue") => void;
   onRefine: (a: RefineAction) => void;
+  onHandwrite: () => void;
 }) {
   return (
     <div className="flex flex-wrap items-center gap-1.5 border-b border-linesoft bg-surface/60 px-4 py-2">
@@ -365,6 +417,14 @@ function AiBar({
         className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated disabled:opacity-40"
       >
         Continue
+      </button>
+      <button
+        onClick={onHandwrite}
+        disabled={busy}
+        className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated disabled:opacity-40"
+        title="Handwrite with pen or touch, then transcribe to text"
+      >
+        ✍ Handwrite{hasInk ? " •" : ""}
       </button>
       <span className="mx-1 h-4 w-px bg-elevated" />
       <span className="text-[11px] text-mute">Suggest on selection:</span>

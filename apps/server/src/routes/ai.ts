@@ -1,9 +1,10 @@
 import { Hono } from "hono";
-import { streamText } from "ai";
+import { streamText, generateText } from "ai";
 import {
   draftRequestSchema,
   outlineRequestSchema,
   refineRequestSchema,
+  transcribeRequestSchema,
   buildDraftPrompt,
   buildOutlinePrompt,
   DRAFT_SYSTEM,
@@ -12,7 +13,7 @@ import {
   refineUserPrompt,
   type Entity,
 } from "@incipit/shared";
-import { getModel } from "../ai.js";
+import { getModel, getVisionModel } from "../ai.js";
 import { projects, nodes, entities, stripHtml } from "../db.js";
 import { relevantEntities } from "../retrieval.js";
 
@@ -79,6 +80,32 @@ aiRoutes.post("/outline", async (c) => {
   const prompt = buildOutlinePrompt({ project, framework, premise });
   const result = streamText({ model: getModel(), system: OUTLINE_SYSTEM, prompt });
   return result.toTextStreamResponse();
+});
+
+/** Transcribe a handwriting image to text via a vision model. */
+aiRoutes.post("/transcribe", async (c) => {
+  const parsed = transcribeRequestSchema.safeParse(await c.req.json());
+  if (!parsed.success) return c.json({ error: parsed.error.flatten() }, 400);
+  try {
+    const { text } = await generateText({
+      model: getVisionModel(),
+      messages: [
+        {
+          role: "user",
+          content: [
+            {
+              type: "text",
+              text: "Transcribe the handwriting in this image into plain text, exactly as written, preserving line breaks. Output only the transcription with no commentary or quotation marks.",
+            },
+            { type: "image", image: parsed.data.image },
+          ],
+        },
+      ],
+    });
+    return c.json({ text: text.trim() });
+  } catch (e) {
+    return c.json({ error: String(e) }, 500);
+  }
 });
 
 /** Fiction line-craft refine of a selected passage. */
