@@ -49,6 +49,10 @@ export const nodeSchema = z.object({
   synopsis: z.string().default(""),
   /** prose body, stored as HTML */
   content: z.string().default(""),
+  /** POV character / label for this chapter or scene (multi-POV stories) */
+  pov: z.string().default(""),
+  /** epigraph — a quote/aside shown before the prose (chapter or scene opener) */
+  epigraph: z.string().default(""),
   /** preserved handwriting: JSON {w,h,strokes:[[{x,y}]]} of the original ink */
   ink: z.string().default(""),
   /** sibling ordering */

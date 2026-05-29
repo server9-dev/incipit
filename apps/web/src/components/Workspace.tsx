@@ -194,11 +194,18 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
               onContentChange={(v) => patchNodeLocal(selected.id, { content: v })}
               onSynopsisChange={(v) => patchNodeLocal(selected.id, { synopsis: v })}
               onTitleChange={(v) => patchNodeLocal(selected.id, { title: v })}
+              onPovChange={(v) => patchNodeLocal(selected.id, { pov: v })}
+              onEpigraphChange={(v) => patchNodeLocal(selected.id, { epigraph: v })}
               onInkSave={(v) => patchNodeLocal(selected.id, { ink: v })}
               onForceSave={() => void flushNode(selected.id)}
             />
           ) : selected ? (
-            <FolderView node={selected} onTitle={(v) => patchNodeLocal(selected.id, { title: v })} />
+            <FolderView
+              node={selected}
+              onTitle={(v) => patchNodeLocal(selected.id, { title: v })}
+              onPov={(v) => patchNodeLocal(selected.id, { pov: v })}
+              onEpigraph={(v) => patchNodeLocal(selected.id, { epigraph: v })}
+            />
           ) : (
             <div className="flex h-full items-center justify-center text-mute">
               Select or add a scene to start writing.
@@ -243,17 +250,44 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
   );
 }
 
-function FolderView({ node, onTitle }: { node: StoryNode; onTitle: (v: string) => void }) {
+function FolderView({
+  node,
+  onTitle,
+  onPov,
+  onEpigraph,
+}: {
+  node: StoryNode;
+  onTitle: (v: string) => void;
+  onPov: (v: string) => void;
+  onEpigraph: (v: string) => void;
+}) {
   return (
-    <div className="px-8 py-6">
+    <div className="max-w-2xl px-8 py-6">
       <input
         value={node.title}
         onChange={(e) => onTitle(e.target.value)}
-        className="text-xl font-semibold text-fg outline-none"
+        className="w-full bg-transparent text-xl font-semibold text-fg outline-none"
       />
-      <p className="mt-2 text-sm text-mute">
+      <p className="mt-1 text-sm text-mute">
         This is a {node.type}. Add and select a scene inside it to write.
       </p>
+      {node.type === "chapter" && (
+        <div className="mt-4 space-y-2">
+          <input
+            value={node.pov}
+            onChange={(e) => onPov(e.target.value)}
+            placeholder="POV (optional) — e.g. a character's name for multi-POV chapters"
+            className="w-full rounded-md bg-surface px-3 py-2 text-sm text-dim outline-none focus:bg-elevated"
+          />
+          <textarea
+            value={node.epigraph}
+            onChange={(e) => onEpigraph(e.target.value)}
+            placeholder="Epigraph — an opening quote/aside shown before this chapter in book view & export"
+            rows={3}
+            className="w-full resize-none rounded-md bg-surface px-3 py-2 text-sm italic text-dim outline-none focus:bg-elevated"
+          />
+        </div>
+      )}
     </div>
   );
 }

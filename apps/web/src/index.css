@@ -181,6 +181,34 @@ body {
   margin: 1.1em 0;
   color: #6b7280;
 }
+.book-pov {
+  text-align: center;
+  font-style: italic;
+  font-size: 0.95em;
+  color: #555;
+  margin: -0.8em 0 1.4em;
+}
+.book-epigraph {
+  font-style: italic;
+  text-align: center;
+  color: #444;
+  margin: 0 2em 1.6em;
+  white-space: pre-wrap;
+}
+.book-prose .book-epigraph {
+  text-indent: 0;
+}
+
+/* alignment fix: centered / right / justified text must not keep the
+   first-line indent (it was shoving centered lines to the right) */
+.incipit-prose [style*="text-align: center"],
+.incipit-prose [style*="text-align: right"],
+.incipit-prose [style*="text-align:center"],
+.incipit-prose [style*="text-align:right"],
+.book-prose [style*="text-align: center"],
+.book-prose [style*="text-align: right"] {
+  text-indent: 0;
+}
 
 /* ---- Print → PDF: one trim-sized sheet per physical page ---- */
 @media print {

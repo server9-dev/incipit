@@ -63,6 +63,8 @@ export function Editor({
   onContentChange,
   onSynopsisChange,
   onTitleChange,
+  onPovChange,
+  onEpigraphChange,
   onInkSave,
   onForceSave,
 }: {
@@ -73,6 +75,8 @@ export function Editor({
   onContentChange: (v: string) => void;
   onSynopsisChange: (v: string) => void;
   onTitleChange: (v: string) => void;
+  onPovChange: (v: string) => void;
+  onEpigraphChange: (v: string) => void;
   onInkSave: (ink: string) => void;
   onForceSave: () => void;
 }) {
@@ -281,6 +285,22 @@ export function Editor({
           rows={2}
           className="mt-1 w-full resize-none rounded-md bg-surface px-2 py-1.5 text-sm text-dim outline-none focus:bg-elevated"
         />
+        <div className="mt-1 flex flex-wrap gap-2">
+          <input
+            value={node.pov}
+            onChange={(e) => onPovChange(e.target.value)}
+            placeholder="POV (optional)"
+            className="w-44 rounded-md bg-surface px-2 py-1 text-xs text-dim outline-none focus:bg-elevated"
+            title="POV character / label — shown in book view, useful for multi-POV stories"
+          />
+          <input
+            value={node.epigraph}
+            onChange={(e) => onEpigraphChange(e.target.value)}
+            placeholder="Epigraph — an opening quote/aside (optional)"
+            className="min-w-0 flex-1 rounded-md bg-surface px-2 py-1 text-xs italic text-dim outline-none focus:bg-elevated"
+            title="A quote or aside shown before the prose in book view & export"
+          />
+        </div>
       </div>
 
       {proposal ? (

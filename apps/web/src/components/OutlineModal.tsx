@@ -78,17 +78,26 @@ export function OutlineModal({
               ))}
             </select>
             <button
-              onClick={generate}
-              disabled={busy || !premise.trim()}
-              className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-ink hover:bg-brand-dark disabled:opacity-40"
+              onClick={() => setResult(localOutlineScaffold(framework, premise))}
+              className="rounded-lg border border-line px-3 py-2 text-sm font-medium text-dim hover:bg-elevated"
+              title="Drop in the framework's beats as a blank template to fill in yourself"
             >
-              {busy ? "Generating…" : connected ? "Generate" : "Scaffold (offline)"}
+              Template
             </button>
+            {connected && (
+              <button
+                onClick={generate}
+                disabled={busy || !premise.trim()}
+                className="rounded-lg bg-brand px-4 py-2 text-sm font-medium text-ink hover:bg-brand-dark disabled:opacity-40"
+              >
+                {busy ? "Generating…" : "Generate with AI"}
+              </button>
+            )}
           </div>
           <textarea
             value={premise}
             onChange={(e) => setPremise(e.target.value)}
-            placeholder="Premise / logline to outline from…"
+            placeholder="Premise / logline (used by AI, and seeded into the template)…"
             rows={2}
             className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand"
           />
@@ -97,7 +106,13 @@ export function OutlineModal({
 
         {result && (
           <div className="min-h-0 flex-1 overflow-y-auto border-t border-linesoft px-5 py-3">
-            <pre className="whitespace-pre-wrap font-sans text-sm leading-relaxed text-fg">{result}</pre>
+            <textarea
+              value={result}
+              onChange={(e) => setResult(e.target.value)}
+              rows={14}
+              className="w-full resize-none rounded-lg bg-surface px-3 py-2 font-sans text-sm leading-relaxed text-fg outline-none focus:bg-elevated"
+              placeholder="Write your outline here…"
+            />
           </div>
         )}
 

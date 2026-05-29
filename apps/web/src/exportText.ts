@@ -60,11 +60,17 @@ export function manuscriptToMarkdown(project: Project, nodes: StoryNode[]): stri
   const out: string[] = [`# ${project.title}`];
   if (project.synopsis) out.push(`_${project.synopsis}_`);
 
+  const epi = (s: string) => s.split("\n").map((l) => `> ${l}`).join("\n");
   const walk = (node: TreeItem) => {
     if (node.type === "folder") out.push(`\n# ${node.title}`);
-    else if (node.type === "chapter") out.push(`\n## ${node.title}`);
-    else {
+    else if (node.type === "chapter") {
+      out.push(`\n## ${node.title}`);
+      if (node.pov) out.push(`*— ${node.pov}*`);
+      if (node.epigraph) out.push(epi(node.epigraph));
+    } else {
       out.push(`\n### ${node.title}`);
+      if (node.pov) out.push(`*— ${node.pov}*`);
+      if (node.epigraph) out.push(epi(node.epigraph));
       const body = htmlToMarkdown(node.content);
       if (body) out.push(body);
     }

@@ -17,8 +17,9 @@ const MARGIN = { top: 0.75, bottom: 0.85, side: 0.7 }; // inches
 const CHAPTER_TOP = 1.1; // inches of space above a chapter title
 
 type Item =
-  | { kind: "chapter" | "part"; title: string }
+  | { kind: "chapter" | "part"; title: string; pov?: string; epigraph?: string }
   | { kind: "scene-break" }
+  | { kind: "epigraph"; text: string }
   | { kind: "block"; html: string };
 
 type TreeItem = StoryNode & { children: TreeItem[] };
@@ -54,15 +55,16 @@ function buildItems(nodes: StoryNode[]): Item[] {
       items.push({ kind: "part", title: node.title });
       node.children.forEach(walk);
     } else if (node.type === "chapter") {
-      items.push({ kind: "chapter", title: node.title });
+      items.push({ kind: "chapter", title: node.title, pov: node.pov, epigraph: node.epigraph });
       const scenes = node.children;
       scenes.forEach((s, i) => {
         if (i > 0) items.push({ kind: "scene-break" });
+        if (s.epigraph) items.push({ kind: "epigraph", text: s.epigraph });
         contentBlocks(s.content).forEach((html) => items.push({ kind: "block", html }));
       });
     } else {
       // standalone scene / poem (short story, poems): its own titled page
-      items.push({ kind: "chapter", title: node.title });
+      items.push({ kind: "chapter", title: node.title, pov: node.pov, epigraph: node.epigraph });
       contentBlocks(node.content).forEach((html) => items.push({ kind: "block", html }));
     }
   };
@@ -75,8 +77,11 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 function itemHtml(item: Item, chapterTopPx: number): string {
   if (item.kind === "block") return item.html;
   if (item.kind === "scene-break") return `<div class="book-scene-break">#</div>`;
+  if (item.kind === "epigraph") return `<div class="book-epigraph">${esc(item.text)}</div>`;
   const cls = item.kind === "part" ? "book-part-title" : "book-chap-title";
-  return `<div style="padding-top:${chapterTopPx}px"><div class="${cls}">${esc(item.title)}</div></div>`;
+  const pov = item.pov ? `<div class="book-pov">${esc(item.pov)}</div>` : "";
+  const epi = item.epigraph ? `<div class="book-epigraph">${esc(item.epigraph)}</div>` : "";
+  return `<div style="padding-top:${chapterTopPx}px"><div class="${cls}">${esc(item.title)}</div>${pov}${epi}</div>`;
 }
 
 export function BookView({ project, nodes, onClose }: { project: Project; nodes: StoryNode[]; onClose: () => void }) {
