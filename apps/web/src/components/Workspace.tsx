@@ -7,6 +7,7 @@ import { StoryBible } from "./StoryBible.js";
 import { OutlineModal } from "./OutlineModal.js";
 import { ProjectSetup } from "./ProjectSetup.js";
 import { BookView } from "./BookView.js";
+import { ToolsMenu, type ToolState, type ToolActions } from "./ToolsMenu.js";
 import { manuscriptToMarkdown, downloadText } from "../exportText.js";
 
 // Excalidraw is heavy — load it only when the storyboard opens
@@ -20,6 +21,8 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
   const [showOutline, setShowOutline] = useState(false);
   const [showBook, setShowBook] = useState(false);
   const [showStoryboard, setShowStoryboard] = useState(false);
+  const [toolState, setToolState] = useState<ToolState | null>(null);
+  const toolActionsRef = useRef<ToolActions | null>(null);
   const [saving, setSaving] = useState(false);
 
   const nodeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -169,9 +172,10 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
       <div className="flex min-h-0 flex-1">
         <aside className="flex w-64 flex-col border-r border-linesoft bg-surface">
           <ProjectSetup project={project} onChange={patchProject} />
-          <div className="border-t border-linesoft px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-mute">
-            Manuscript
-          </div>
+          <ToolsMenu state={toolState} actionsRef={toolActionsRef} />
+          {/* gradient divider between the AI tools and the manuscript nav */}
+          <div className="h-0.5 shrink-0" style={{ background: "linear-gradient(90deg, #00D4FF, #9B59B6, #FF0080)" }} />
+          <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-mute">Manuscript</div>
           <ManuscriptTree
             nodes={nodes}
             selectedId={selectedId}
@@ -198,6 +202,8 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
               onEpigraphChange={(v) => patchNodeLocal(selected.id, { epigraph: v })}
               onInkSave={(v) => patchNodeLocal(selected.id, { ink: v })}
               onForceSave={() => void flushNode(selected.id)}
+              onToolState={setToolState}
+              toolActionsRef={toolActionsRef}
             />
           ) : selected ? (
             <FolderView

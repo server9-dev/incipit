@@ -14,17 +14,8 @@ import { initialHtml, textToHtml, textToInlineHtml } from "../richtext.js";
 import { LOCAL_REFINE } from "../localcraft.js";
 import { useDictation } from "../useDictation.js";
 import { useWhisperDictation } from "../whisperDictation.js";
-
-const REFINE_ORDER: RefineAction[] = [
-  "show_dont_tell",
-  "tighten",
-  "vary_rhythm",
-  "sensory",
-  "dialogue_polish",
-  "rewrite",
-  "expand",
-  "proofread",
-];
+import type { ToolState, ToolActions } from "./ToolsMenu.js";
+import type { MutableRefObject } from "react";
 
 const FONTS = [
   { label: "Garamond", value: "" }, // editor default (EB Garamond)
@@ -67,6 +58,8 @@ export function Editor({
   onEpigraphChange,
   onInkSave,
   onForceSave,
+  onToolState,
+  toolActionsRef,
 }: {
   node: StoryNode;
   project: Project;
@@ -79,6 +72,8 @@ export function Editor({
   onEpigraphChange: (v: string) => void;
   onInkSave: (ink: string) => void;
   onForceSave: () => void;
+  onToolState: (s: ToolState | null) => void;
+  toolActionsRef: MutableRefObject<ToolActions | null>;
 }) {
   const projectId = project.id;
   const isVerse = node.type === "poem";
@@ -269,6 +264,43 @@ export function Editor({
     setProposal(null);
   }
 
+  // expose actions to the sidebar Tools menu (latest closures; ref write, no re-render)
+  useEffect(() => {
+    toolActionsRef.current = {
+      draft: runDraft,
+      refine: runRefine,
+      handwrite: () => setHandwriting(true),
+      dictate: dictation.toggle,
+      whisper: whisper.toggle,
+    };
+  });
+
+  // push tool state when it changes (bounded — only on real state changes)
+  const hasContent = !!editor && editor.getText().trim() !== "";
+  useEffect(() => {
+    onToolState({
+      busy,
+      connected,
+      hasContent,
+      hasInk: !!node.ink,
+      isVerse,
+      drafting: gen === "Drafting",
+      dictating: dictation.active,
+      dictationSupported: dictation.supported,
+      whisperRecording: whisper.recording,
+      whisperBusy: whisper.busy,
+      whisperSupported: whisper.supported,
+    });
+  }, [busy, connected, hasContent, node.ink, isVerse, gen, dictation.active, dictation.supported, whisper.recording, whisper.busy, whisper.supported, onToolState]);
+
+  useEffect(
+    () => () => {
+      onToolState(null);
+      toolActionsRef.current = null;
+    },
+    [onToolState, toolActionsRef],
+  );
+
   return (
     <div className="flex h-full flex-col">
       {/* title + brief */}
@@ -328,24 +360,6 @@ export function Editor({
       ) : (
         <>
           {editor && <FormatBar editor={editor} onSave={onForceSave} paperKey={paperKey} onPaper={setPaperKey} />}
-          <AiBar
-            isVerse={isVerse}
-            busy={busy}
-            connected={connected}
-            drafting={gen === "Drafting"}
-            hasContent={!!editor && editor.getText().trim() !== ""}
-            hasInk={!!node.ink}
-            dictating={dictation.active}
-            dictationSupported={dictation.supported}
-            whisperRecording={whisper.recording}
-            whisperBusy={whisper.busy}
-            whisperSupported={whisper.supported}
-            onDraft={runDraft}
-            onRefine={runRefine}
-            onHandwrite={() => setHandwriting(true)}
-            onDictate={dictation.toggle}
-            onWhisper={whisper.toggle}
-          />
           {dictation.active && (
             <div className="flex items-center gap-2 border-b border-linesoft bg-surface px-4 py-1.5 text-xs">
               <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
@@ -482,109 +496,6 @@ function FormatBar({
   );
 }
 
-function AiBar({
-  isVerse,
-  busy,
-  connected,
-  drafting,
-  hasContent,
-  hasInk,
-  dictating,
-  dictationSupported,
-  whisperRecording,
-  whisperBusy,
-  whisperSupported,
-  onDraft,
-  onRefine,
-  onHandwrite,
-  onDictate,
-  onWhisper,
-}: {
-  isVerse: boolean;
-  busy: boolean;
-  connected: boolean;
-  drafting: boolean;
-  hasContent: boolean;
-  hasInk: boolean;
-  dictating: boolean;
-  dictationSupported: boolean;
-  whisperRecording: boolean;
-  whisperBusy: boolean;
-  whisperSupported: boolean;
-  onDraft: (mode: "draft" | "continue") => void;
-  onRefine: (a: RefineAction) => void;
-  onHandwrite: () => void;
-  onDictate: () => void;
-  onWhisper: () => void;
-}) {
-  const offlineOk = (a: RefineAction) => a === "proofread" || a === "tighten";
-  return (
-    <div className="flex flex-wrap items-center gap-1.5 border-b border-linesoft bg-surface/60 px-4 py-2">
-      <button
-        onClick={() => onDraft("draft")}
-        disabled={busy || !connected}
-        title={!connected ? "Needs a model — connect one in settings (top-right)" : undefined}
-        className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink hover:bg-brand-dark disabled:opacity-40"
-      >
-        {drafting ? "Drafting…" : isVerse ? "Draft verse" : "Draft scene"}
-      </button>
-      <button
-        onClick={() => onDraft("continue")}
-        disabled={busy || !connected || !hasContent}
-        className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated disabled:opacity-40"
-      >
-        Continue
-      </button>
-      <button
-        onClick={onHandwrite}
-        disabled={busy || !connected}
-        className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated disabled:opacity-40"
-        title={!connected ? "Handwriting transcription needs a vision model" : "Handwrite with pen or touch, then transcribe to text"}
-      >
-        ✍ Handwrite{hasInk ? " •" : ""}
-      </button>
-      {dictationSupported && (
-        <button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={onDictate}
-          className={`rounded-md border px-3 py-1 text-xs font-medium disabled:opacity-40 ${
-            dictating ? "border-red-500 bg-red-500/15 text-red-300" : "border-line text-dim hover:bg-elevated"
-          }`}
-          title="Dictate — live speech-to-text (fast, uses the browser's cloud speech service)"
-        >
-          {dictating ? "● Stop" : "🎤 Dictate"}
-        </button>
-      )}
-      {whisperSupported && (
-        <button
-          onMouseDown={(e) => e.preventDefault()}
-          onClick={onWhisper}
-          disabled={whisperBusy}
-          className={`rounded-md border px-3 py-1 text-xs font-medium disabled:opacity-40 ${
-            whisperRecording ? "border-red-500 bg-red-500/15 text-red-300" : "border-line text-dim hover:bg-elevated"
-          }`}
-          title="Whisper — private on-device dictation (record a passage, transcribes locally; nothing leaves your device)"
-        >
-          {whisperBusy ? "…" : whisperRecording ? "● Stop" : "🎙 Whisper"}
-        </button>
-      )}
-      <span className="mx-1 h-4 w-px bg-elevated" />
-      <span className="text-[11px] text-mute">{connected ? "Suggest on selection:" : "Offline — proofread & tighten only:"}</span>
-      {REFINE_ORDER.map((a) => (
-        <button
-          key={a}
-          onMouseDown={(e) => e.preventDefault()} // keep the editor's highlighted selection
-          onClick={() => onRefine(a)}
-          disabled={busy || (!connected && !offlineOk(a))}
-          title={!connected && !offlineOk(a) ? "Needs a model" : "Runs on your highlighted text (whole scene if nothing is selected)"}
-          className="rounded-md border border-line px-2 py-1 text-[11px] font-medium text-dim hover:bg-elevated disabled:opacity-40"
-        >
-          {REFINE_LABELS[a]}
-        </button>
-      ))}
-    </div>
-  );
-}
 
 function GeneratingView({ label, text, progress, paper }: { label: string; text: string; progress?: string; paper: Paper }) {
   return (
