@@ -6,8 +6,11 @@
       <stop offset="100%" stop-color="#FF0080"/>
     </linearGradient>
   </defs>
-  <rect width="512" height="512" rx="96" fill="#0a0a12"/>
-  <text x="50%" y="50%" dy="0.34em" text-anchor="middle"
-        font-family="Georgia, 'Times New Roman', serif" font-weight="700"
-        font-size="320" fill="url(#g)">I</text>
+  <rect width="512" height="512" rx="104" fill="#0a0a12"/>
+  <!-- serif "I" as vector shapes (font-independent) -->
+  <g fill="url(#g)">
+    <rect x="150" y="132" width="212" height="46" rx="8"/>
+    <rect x="218" y="132" width="76" height="248"/>
+    <rect x="150" y="334" width="212" height="46" rx="8"/>
+  </g>
 </svg>
