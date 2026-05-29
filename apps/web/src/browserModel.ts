@@ -29,21 +29,35 @@ export function setBrowserEngine(enabled: boolean, modelId?: string) {
 export type Progress = (p: { progress: number; text: string }) => void;
 
 let engine: MLCEngine | null = null;
-let loadedModel = "";
+let loadedModel = ""; // only set AFTER a successful reload
 let loading: Promise<MLCEngine> | null = null;
 
-/** Lazily load WebLLM + the selected model (cached in the browser after first download). */
+/**
+ * Lazily load WebLLM + the selected model (cached in the browser after first
+ * download). Uses an explicit reload() so the model is guaranteed loaded before
+ * we return, and resets cleanly on failure so a retry isn't stuck.
+ */
 export async function ensureEngine(onProgress?: Progress): Promise<MLCEngine> {
   const modelId = getBrowserModelId();
   if (engine && loadedModel === modelId) return engine;
-  if (loading && loadedModel === modelId) return loading;
-  loadedModel = modelId;
+  if (loading) {
+    await loading.catch(() => {});
+    if (engine && loadedModel === modelId) return engine;
+  }
   loading = (async () => {
-    const webllm = await import("@mlc-ai/web-llm");
-    engine = await webllm.CreateMLCEngine(modelId, {
-      initProgressCallback: (r) => onProgress?.({ progress: r.progress, text: r.text }),
-    });
-    return engine;
+    try {
+      const webllm = await import("@mlc-ai/web-llm");
+      if (!engine) engine = new webllm.MLCEngine();
+      if (onProgress) engine.setInitProgressCallback((r) => onProgress({ progress: r.progress, text: r.text }));
+      await engine.reload(modelId); // resolves only once the model is fully loaded
+      loadedModel = modelId;
+      return engine;
+    } catch (e) {
+      loadedModel = ""; // allow a clean retry
+      throw e;
+    } finally {
+      loading = null;
+    }
   })();
   return loading;
 }

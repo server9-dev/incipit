@@ -22,6 +22,7 @@ export function OutlineModal({
   const [premise, setPremise] = useState(defaultPremise);
   const [result, setResult] = useState("");
   const [busy, setBusy] = useState(false);
+  const [progress, setProgress] = useState("");
 
   async function generate() {
     if (!premise.trim() || busy) return;
@@ -32,16 +33,23 @@ export function OutlineModal({
     }
     setBusy(true);
     setResult("");
+    setProgress("");
     let acc = "";
     try {
-      await outlineStream({ project, framework, premise }, (chunk) => {
-        acc += chunk;
-        setResult(acc);
-      });
+      await outlineStream(
+        { project, framework, premise },
+        (chunk) => {
+          acc += chunk;
+          setResult(acc);
+          setProgress("");
+        },
+        (p) => setProgress(p.progress >= 1 ? "" : `Loading on-device model… ${Math.round(p.progress * 100)}% (first use only)`),
+      );
     } catch (e) {
-      setResult("Error: " + e);
+      setResult("Couldn't generate: " + (e instanceof Error ? e.message : String(e)));
     } finally {
       setBusy(false);
+      setProgress("");
     }
   }
 
@@ -84,6 +92,7 @@ export function OutlineModal({
             rows={2}
             className="w-full resize-none rounded-lg border border-line px-3 py-2 text-sm outline-none focus:border-brand"
           />
+          {progress && <p className="text-xs text-brand">{progress}</p>}
         </div>
 
         {result && (
