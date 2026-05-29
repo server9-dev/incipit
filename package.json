@@ -6,8 +6,7 @@
   "license": "MIT",
   "type": "module",
   "scripts": {
-    "dev": "pnpm --parallel --filter @incipit/server --filter @incipit/web dev",
-    "dev:server": "pnpm --filter @incipit/server dev",
+    "dev": "pnpm --filter @incipit/web dev",
     "dev:web": "pnpm --filter @incipit/web dev",
     "build": "pnpm -r build",
     "typecheck": "pnpm -r typecheck"

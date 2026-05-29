@@ -11,37 +11,45 @@ import {
   type RefineAction,
   type OutlineFramework,
 } from "@incipit/shared";
-import * as api from "./api.js";
 import { browserEngineEnabled, browserStream, type Progress } from "./browserModel.js";
+import { clientStream, relevantEntities } from "./store/ai.js";
 
 const nameMatch = (entities: Entity[], ...texts: string[]): Entity[] => {
   const hay = texts.join(" ").toLowerCase();
   return entities.filter((e) => e.name && hay.includes(e.name.toLowerCase()));
 };
 
-/**
- * Generation routed to the on-device browser model when enabled, otherwise to
- * the server (which adds embeddings-based retrieval). The browser path rebuilds
- * the same prompts client-side with name-matched story-bible context.
- */
-export function draftStream(
+/** Stream from the on-device model (WebLLM) when enabled, else the configured cloud/local provider. */
+function stream(
+  body: { system: string; prompt: string },
+  onChunk: (t: string) => void,
+  onProgress?: Progress,
+): Promise<void> {
+  return browserEngineEnabled() ? browserStream(body, onChunk, onProgress) : clientStream(body, onChunk);
+}
+
+export async function draftStream(
   opts: { project: Project; node: StoryNode; mode: "draft" | "continue"; plain: string; entities: Entity[]; instruction?: string },
   onChunk: (t: string) => void,
   onProgress?: Progress,
 ): Promise<void> {
-  if (browserEngineEnabled()) {
-    const ents = nameMatch(opts.entities, opts.node.synopsis, opts.plain, opts.instruction ?? "");
-    const prompt = buildDraftPrompt({
-      project: opts.project,
-      node: { ...opts.node, content: opts.plain },
-      mode: opts.mode,
-      entities: ents,
-      precedingText: opts.plain,
-      instruction: opts.instruction,
-    });
-    return browserStream({ system: DRAFT_SYSTEM, prompt }, onChunk, onProgress);
+  const explicit = nameMatch(opts.entities, opts.node.synopsis, opts.plain, opts.instruction ?? "");
+  const byId = new Map(explicit.map((e) => [e.id, e]));
+  try {
+    const query = `${opts.node.title}. ${opts.node.synopsis}. ${opts.plain.slice(0, 1500)} ${opts.instruction ?? ""}`;
+    for (const e of await relevantEntities(opts.project.id, query)) byId.set(e.id, e);
+  } catch {
+    /* embeddings unavailable — name-match only */
   }
-  return api.draft({ projectId: opts.project.id, nodeId: opts.node.id, mode: opts.mode, instruction: opts.instruction }, onChunk);
+  const prompt = buildDraftPrompt({
+    project: opts.project,
+    node: { ...opts.node, content: opts.plain },
+    mode: opts.mode,
+    entities: [...byId.values()],
+    precedingText: opts.plain,
+    instruction: opts.instruction,
+  });
+  return stream({ system: DRAFT_SYSTEM, prompt }, onChunk, onProgress);
 }
 
 export function refineStream(
@@ -49,14 +57,11 @@ export function refineStream(
   onChunk: (t: string) => void,
   onProgress?: Progress,
 ): Promise<void> {
-  if (browserEngineEnabled()) {
-    return browserStream(
-      { system: REFINE_SYSTEM[opts.action], prompt: refineUserPrompt(opts.text, opts.project) },
-      onChunk,
-      onProgress,
-    );
-  }
-  return api.refine({ action: opts.action, text: opts.text, projectId: opts.project.id }, onChunk);
+  return stream(
+    { system: REFINE_SYSTEM[opts.action], prompt: refineUserPrompt(opts.text, opts.project) },
+    onChunk,
+    onProgress,
+  );
 }
 
 export function outlineStream(
@@ -64,12 +69,9 @@ export function outlineStream(
   onChunk: (t: string) => void,
   onProgress?: Progress,
 ): Promise<void> {
-  if (browserEngineEnabled()) {
-    return browserStream(
-      { system: OUTLINE_SYSTEM, prompt: buildOutlinePrompt({ project: opts.project, framework: opts.framework, premise: opts.premise }) },
-      onChunk,
-      onProgress,
-    );
-  }
-  return api.outline({ projectId: opts.project.id, framework: opts.framework, premise: opts.premise }, onChunk);
+  return stream(
+    { system: OUTLINE_SYSTEM, prompt: buildOutlinePrompt({ project: opts.project, framework: opts.framework, premise: opts.premise }) },
+    onChunk,
+    onProgress,
+  );
 }
