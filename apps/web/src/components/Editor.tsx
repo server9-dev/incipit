@@ -486,9 +486,10 @@ function AiBar({
       {REFINE_ORDER.map((a) => (
         <button
           key={a}
+          onMouseDown={(e) => e.preventDefault()} // keep the editor's highlighted selection
           onClick={() => onRefine(a)}
           disabled={busy || (!connected && !offlineOk(a))}
-          title={!connected && !offlineOk(a) ? "Needs a model" : undefined}
+          title={!connected && !offlineOk(a) ? "Needs a model" : "Runs on your highlighted text (whole scene if nothing is selected)"}
           className="rounded-md border border-line px-2 py-1 text-[11px] font-medium text-dim hover:bg-elevated disabled:opacity-40"
         >
           {REFINE_LABELS[a]}
