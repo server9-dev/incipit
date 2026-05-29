@@ -218,6 +218,28 @@ export function Editor({
     }
   }
 
+  async function runOcr(png: string) {
+    if (busy || !editor) return;
+    setGen("Reading (OCR)");
+    setStream("");
+    try {
+      const { recognize } = await import("tesseract.js");
+      const { data } = await recognize(png, "eng");
+      const text = (data.text || "").trim();
+      if (text) {
+        const end = editor.state.doc.content.size;
+        setProposal({ from: end, to: end, original: "", proposed: text, label: "handwriting (OCR)", block: true });
+      } else {
+        alert("OCR found no text. Tesseract works best on neat printing — for cursive, a vision model does better.");
+      }
+      setHandwriting(false);
+    } catch (e) {
+      alert("OCR failed: " + e);
+    } finally {
+      setGen(null);
+    }
+  }
+
   function applyProposal(resolved: string) {
     if (!editor || !proposal) return;
     const html = proposal.block ? textToHtml(resolved, isVerse) : textToInlineHtml(resolved);
@@ -259,8 +281,10 @@ export function Editor({
           initial={initialInk}
           paper={paper}
           busy={busy}
+          connected={connected}
           onSaveInk={(ink) => onInkSave(JSON.stringify(ink))}
           onTranscribe={runTranscribe}
+          onOcr={runOcr}
           onClose={() => setHandwriting(false)}
         />
       ) : (

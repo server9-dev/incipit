@@ -12,15 +12,19 @@ export function HandwriteCanvas({
   initial,
   paper,
   busy,
+  connected,
   onSaveInk,
   onTranscribe,
+  onOcr,
   onClose,
 }: {
   initial: Ink | null;
   paper: { bg: string; fg: string };
   busy: boolean;
+  connected: boolean;
   onSaveInk: (ink: Ink) => void;
   onTranscribe: (pngDataUrl: string) => void;
+  onOcr: (pngDataUrl: string) => void;
   onClose: () => void;
 }) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -151,9 +155,21 @@ export function HandwriteCanvas({
           <button
             onClick={() => {
               onSaveInk(currentInk());
-              onTranscribe(toPng());
+              onOcr(toPng());
             }}
             disabled={!hasInk || busy}
+            title="Offline OCR (Tesseract) — best for neat printing; downloads ~12MB once"
+            className="rounded-md border border-line px-2.5 py-1 text-xs font-medium text-dim hover:bg-elevated disabled:opacity-40"
+          >
+            OCR (offline)
+          </button>
+          <button
+            onClick={() => {
+              onSaveInk(currentInk());
+              onTranscribe(toPng());
+            }}
+            disabled={!hasInk || busy || !connected}
+            title={connected ? "Transcribe with the connected vision model (better for cursive)" : "Needs a vision model — connect one in settings, or use offline OCR"}
             className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink hover:bg-brand-dark disabled:opacity-40"
           >
             {busy ? "Transcribing…" : "Transcribe → text"}
