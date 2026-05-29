@@ -16,7 +16,7 @@ export type ProviderName = "ollama" | "openai" | "anthropic" | "google";
 const DEFAULT_MODEL: Record<ProviderName, string> = {
   ollama: "gemma3-writer",
   openai: "gpt-4o-mini",
-  anthropic: "claude-sonnet-4-6",
+  anthropic: "claude-haiku-4-5", // cheap + fast default
   google: "gemini-2.0-flash",
 };
 const DEFAULT_EMBED: Record<ProviderName, string | null> = {

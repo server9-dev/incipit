@@ -46,7 +46,7 @@ export default function App() {
           className="flex items-center gap-2 rounded-md border border-line px-2.5 py-1 text-xs text-dim hover:bg-elevated"
         >
           <span className={`h-2 w-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`} />
-          {model}
+          {connected ? "AI ready" : "Enable AI"}
           <span className="text-mute">⚙</span>
         </button>
       </header>
