@@ -12,6 +12,7 @@
   "dependencies": {
     "@excalidraw/excalidraw": "^0.18.1",
     "@fontsource/eb-garamond": "^5.2.7",
+    "@huggingface/transformers": "^4.2.0",
     "@incipit/shared": "workspace:*",
     "@mlc-ai/web-llm": "^0.2.84",
     "@tiptap/extension-highlight": "^3.23.6",

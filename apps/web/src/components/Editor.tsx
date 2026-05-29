@@ -13,6 +13,7 @@ import { HandwriteCanvas, type Ink } from "./HandwriteCanvas.js";
 import { initialHtml, textToHtml, textToInlineHtml } from "../richtext.js";
 import { LOCAL_REFINE } from "../localcraft.js";
 import { useDictation } from "../useDictation.js";
+import { useWhisperDictation } from "../whisperDictation.js";
 
 const REFINE_ORDER: RefineAction[] = [
   "show_dont_tell",
@@ -128,9 +129,9 @@ export function Editor({
     return () => window.removeEventListener("keydown", onKey);
   }, [onForceSave]);
 
-  const dictation = useDictation((text) => {
-    editor?.chain().focus().insertContent(text.replace(/\s+$/, "") + " ").run();
-  });
+  const insertSpoken = (text: string) => editor?.chain().focus().insertContent(text.replace(/\s+$/, "") + " ").run();
+  const dictation = useDictation(insertSpoken);
+  const whisper = useWhisperDictation(insertSpoken);
 
   const busy = gen !== null;
 
@@ -316,16 +317,28 @@ export function Editor({
             hasInk={!!node.ink}
             dictating={dictation.active}
             dictationSupported={dictation.supported}
+            whisperRecording={whisper.recording}
+            whisperBusy={whisper.busy}
+            whisperSupported={whisper.supported}
             onDraft={runDraft}
             onRefine={runRefine}
             onHandwrite={() => setHandwriting(true)}
             onDictate={dictation.toggle}
+            onWhisper={whisper.toggle}
           />
           {dictation.active && (
             <div className="flex items-center gap-2 border-b border-linesoft bg-surface px-4 py-1.5 text-xs">
               <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
               <span className="text-dim">Listening… speak and it types into the page.</span>
               {dictation.interim && <span className="truncate italic text-mute">{dictation.interim}</span>}
+            </div>
+          )}
+          {(whisper.recording || whisper.busy) && (
+            <div className="flex items-center gap-2 border-b border-linesoft bg-surface px-4 py-1.5 text-xs">
+              <span className={`h-2 w-2 rounded-full ${whisper.recording ? "animate-pulse bg-red-500" : "bg-brand"}`} />
+              <span className="text-dim">
+                {whisper.recording ? "Recording on-device (private)… click Stop to transcribe." : whisper.progress || "Transcribing…"}
+              </span>
             </div>
           )}
           <div className="flex-1 overflow-y-auto" style={{ background: paper.bg, color: paper.fg }}>
@@ -458,10 +471,14 @@ function AiBar({
   hasInk,
   dictating,
   dictationSupported,
+  whisperRecording,
+  whisperBusy,
+  whisperSupported,
   onDraft,
   onRefine,
   onHandwrite,
   onDictate,
+  onWhisper,
 }: {
   isVerse: boolean;
   busy: boolean;
@@ -471,10 +488,14 @@ function AiBar({
   hasInk: boolean;
   dictating: boolean;
   dictationSupported: boolean;
+  whisperRecording: boolean;
+  whisperBusy: boolean;
+  whisperSupported: boolean;
   onDraft: (mode: "draft" | "continue") => void;
   onRefine: (a: RefineAction) => void;
   onHandwrite: () => void;
   onDictate: () => void;
+  onWhisper: () => void;
 }) {
   const offlineOk = (a: RefineAction) => a === "proofread" || a === "tighten";
   return (
@@ -509,9 +530,22 @@ function AiBar({
           className={`rounded-md border px-3 py-1 text-xs font-medium disabled:opacity-40 ${
             dictating ? "border-red-500 bg-red-500/15 text-red-300" : "border-line text-dim hover:bg-elevated"
           }`}
-          title="Dictate — speak and it types into the page (uses the browser's speech service)"
+          title="Dictate — live speech-to-text (fast, uses the browser's cloud speech service)"
         >
           {dictating ? "● Stop" : "🎤 Dictate"}
+        </button>
+      )}
+      {whisperSupported && (
+        <button
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={onWhisper}
+          disabled={whisperBusy}
+          className={`rounded-md border px-3 py-1 text-xs font-medium disabled:opacity-40 ${
+            whisperRecording ? "border-red-500 bg-red-500/15 text-red-300" : "border-line text-dim hover:bg-elevated"
+          }`}
+          title="Whisper — private on-device dictation (record a passage, transcribes locally; nothing leaves your device)"
+        >
+          {whisperBusy ? "…" : whisperRecording ? "● Stop" : "🎙 Whisper"}
         </button>
       )}
       <span className="mx-1 h-4 w-px bg-elevated" />
