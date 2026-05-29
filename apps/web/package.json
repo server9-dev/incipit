@@ -13,6 +13,7 @@
     "@excalidraw/excalidraw": "^0.18.1",
     "@fontsource/eb-garamond": "^5.2.7",
     "@incipit/shared": "workspace:*",
+    "@mlc-ai/web-llm": "^0.2.84",
     "@tiptap/extension-highlight": "^3.23.6",
     "@tiptap/extension-placeholder": "^3.23.6",
     "@tiptap/extension-text-align": "^3.23.6",

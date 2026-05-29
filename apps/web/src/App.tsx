@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { fetchHealth } from "./api.js";
+import { browserEngineEnabled, webgpuAvailable, getBrowserModelId } from "./browserModel.js";
 import { ProjectList } from "./components/ProjectList.js";
 import { Workspace } from "./components/Workspace.js";
 import { SettingsModal } from "./components/SettingsModal.js";
@@ -11,6 +12,12 @@ export default function App() {
   const [showSettings, setShowSettings] = useState(false);
 
   const refresh = useCallback(() => {
+    // on-device browser model takes precedence and needs no server
+    if (browserEngineEnabled() && webgpuAvailable()) {
+      setModel(`browser/${getBrowserModelId().replace(/-q4f16_1-MLC$/, "")}`);
+      setConnected(true);
+      return;
+    }
     fetchHealth()
       .then((h) => {
         setModel(`${h.ai.provider}/${h.ai.model}`);

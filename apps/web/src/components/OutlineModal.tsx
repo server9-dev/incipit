@@ -1,18 +1,18 @@
 import { useState } from "react";
-import { OUTLINE_FRAMEWORK_LABELS, type OutlineFramework } from "@incipit/shared";
-import { outline as outlineApi } from "../api.js";
+import { OUTLINE_FRAMEWORK_LABELS, type OutlineFramework, type Project } from "@incipit/shared";
+import { outlineStream } from "../clientai.js";
 import { localOutlineScaffold } from "../localcraft.js";
 
 const FRAMEWORKS = Object.keys(OUTLINE_FRAMEWORK_LABELS) as OutlineFramework[];
 
 export function OutlineModal({
-  projectId,
+  project,
   connected,
   defaultPremise,
   onClose,
   onInsert,
 }: {
-  projectId: string;
+  project: Project;
   connected: boolean;
   defaultPremise: string;
   onClose: () => void;
@@ -25,7 +25,7 @@ export function OutlineModal({
 
   async function generate() {
     if (!premise.trim() || busy) return;
-    // offline: drop in a fillable beat-sheet scaffold instead of generating
+    // offline (no model): drop in a fillable beat-sheet scaffold instead
     if (!connected) {
       setResult(localOutlineScaffold(framework, premise));
       return;
@@ -34,7 +34,7 @@ export function OutlineModal({
     setResult("");
     let acc = "";
     try {
-      await outlineApi({ projectId, framework, premise }, (chunk) => {
+      await outlineStream({ project, framework, premise }, (chunk) => {
         acc += chunk;
         setResult(acc);
       });

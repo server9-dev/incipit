@@ -5,8 +5,9 @@ import Highlight from "@tiptap/extension-highlight";
 import { TextStyle, FontFamily } from "@tiptap/extension-text-style";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
-import { REFINE_LABELS, type StoryNode, type RefineAction } from "@incipit/shared";
-import { draft as draftApi, refine as refineApi, transcribe as transcribeApi } from "../api.js";
+import { REFINE_LABELS, type Project, type StoryNode, type Entity, type RefineAction } from "@incipit/shared";
+import { transcribe as transcribeApi } from "../api.js";
+import { draftStream, refineStream } from "../clientai.js";
 import { SuggestionReview } from "./SuggestionReview.js";
 import { HandwriteCanvas, type Ink } from "./HandwriteCanvas.js";
 import { initialHtml, textToHtml, textToInlineHtml } from "../richtext.js";
@@ -54,7 +55,8 @@ type Proposal = {
 
 export function Editor({
   node,
-  projectId,
+  project,
+  entities,
   connected,
   onContentChange,
   onSynopsisChange,
@@ -63,7 +65,8 @@ export function Editor({
   onForceSave,
 }: {
   node: StoryNode;
-  projectId: string;
+  project: Project;
+  entities: Entity[];
   connected: boolean;
   onContentChange: (v: string) => void;
   onSynopsisChange: (v: string) => void;
@@ -71,10 +74,14 @@ export function Editor({
   onInkSave: (ink: string) => void;
   onForceSave: () => void;
 }) {
+  const projectId = project.id;
   const isVerse = node.type === "poem";
   const [gen, setGen] = useState<string | null>(null);
   const [stream, setStream] = useState("");
+  const [progress, setProgress] = useState("");
   const [proposal, setProposal] = useState<Proposal | null>(null);
+  const onProgress = (p: { progress: number; text: string }) =>
+    setProgress(p.progress >= 1 ? "" : `Loading on-device model… ${Math.round(p.progress * 100)}%`);
   const [paperKey, setPaperKey] = useState<string>(() => localStorage.getItem("incipit-paper") || "white");
   const paper = PAPERS[paperKey] ?? PAPERS.white!;
   useEffect(() => {
@@ -127,40 +134,44 @@ export function Editor({
     const docSize = editor.state.doc.content.size;
     const empty = editor.getText().trim() === "";
 
+    const plain = editor.getText();
+
     if (mode === "draft" && empty) {
       setGen("Drafting");
       setStream("");
       let acc = "";
       try {
-        await draftApi({ projectId, nodeId: node.id, mode }, (ch) => {
+        await draftStream({ project, node, mode, plain, entities }, (ch) => {
           acc += ch;
           setStream(acc);
-        });
+        }, onProgress);
         editor.chain().focus().setContent(textToHtml(acc, isVerse)).run();
       } catch (e) {
         alert("Draft failed: " + e);
       } finally {
         setGen(null);
+        setProgress("");
       }
       return;
     }
 
     const range = mode === "continue" ? { from: docSize, to: docSize } : { from: 0, to: docSize };
-    const original = mode === "continue" ? "" : editor.getText();
+    const original = mode === "continue" ? "" : plain;
 
     setGen(mode === "continue" ? "Continuing" : "Re-drafting");
     setStream("");
     let acc = "";
     try {
-      await draftApi({ projectId, nodeId: node.id, mode }, (ch) => {
+      await draftStream({ project, node, mode, plain, entities }, (ch) => {
         acc += ch;
         setStream(acc);
-      });
+      }, onProgress);
       setProposal({ ...range, original, proposed: acc, label: mode === "continue" ? "continuation" : "re-draft", block: true });
     } catch (e) {
       alert("Draft failed: " + e);
     } finally {
       setGen(null);
+      setProgress("");
     }
   }
 
@@ -188,15 +199,16 @@ export function Editor({
     setStream("");
     let acc = "";
     try {
-      await refineApi({ action, text: original, projectId }, (ch) => {
+      await refineStream({ project, action, text: original }, (ch) => {
         acc += ch;
         setStream(acc);
-      });
+      }, onProgress);
       setProposal({ from, to, original, proposed: acc, label: REFINE_LABELS[action], block: wholeDoc });
     } catch (e) {
       alert("Refine failed: " + e);
     } finally {
       setGen(null);
+      setProgress("");
     }
   }
 
@@ -275,7 +287,7 @@ export function Editor({
           onCancel={() => setProposal(null)}
         />
       ) : busy && gen !== "Drafting" ? (
-        <GeneratingView label={gen!} text={stream} paper={paper} />
+        <GeneratingView label={gen!} text={stream} progress={progress} paper={paper} />
       ) : handwriting ? (
         <HandwriteCanvas
           initial={initialInk}
@@ -486,12 +498,12 @@ function AiBar({
   );
 }
 
-function GeneratingView({ label, text, paper }: { label: string; text: string; paper: Paper }) {
+function GeneratingView({ label, text, progress, paper }: { label: string; text: string; progress?: string; paper: Paper }) {
   return (
     <div className="flex h-full flex-col">
       <div className="flex items-center gap-2 border-b border-linesoft bg-surface px-4 py-2 text-xs text-dim">
         <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
-        {label}… <span className="text-mute">writing — you'll review the suggestion next</span>
+        {progress ? <span className="text-brand">{progress}</span> : <>{label}… <span className="text-mute">writing — you'll review the suggestion next</span></>}
       </div>
       <div
         className="flex-1 overflow-y-auto whitespace-pre-wrap px-8 py-6 font-garamond text-[19px] leading-relaxed opacity-80"

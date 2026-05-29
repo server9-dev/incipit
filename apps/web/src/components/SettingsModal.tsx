@@ -1,5 +1,13 @@
 import { useEffect, useState } from "react";
 import { getSettings, updateSettings, type AppSettings } from "../api.js";
+import {
+  BROWSER_MODELS,
+  DEFAULT_BROWSER_MODEL,
+  browserEngineEnabled,
+  getBrowserModelId,
+  setBrowserEngine,
+  webgpuAvailable,
+} from "../browserModel.js";
 
 const PROVIDER_LABELS: Record<string, string> = {
   ollama: "Ollama (local)",
@@ -18,6 +26,9 @@ export function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSav
   const [visionModel, setVisionModel] = useState("");
   const [ollamaBaseUrl, setOllamaBaseUrl] = useState("");
   const [saving, setSaving] = useState(false);
+  const [useBrowser, setUseBrowser] = useState(browserEngineEnabled());
+  const [browserModelId, setBrowserModelId] = useState(getBrowserModelId());
+  const webgpu = webgpuAvailable();
 
   useEffect(() => {
     getSettings().then((d) => {
@@ -42,6 +53,7 @@ export function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSav
       if (provider === "google") patch.googleKey = key.trim();
     }
     try {
+      setBrowserEngine(useBrowser && webgpu, browserModelId);
       await updateSettings(patch);
       onSaved();
       onClose();
@@ -112,6 +124,31 @@ export function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSav
               <p className="mt-1 text-[11px] text-mute">Stored locally on this machine. No GPU required.</p>
             </div>
           )}
+
+          <div className="rounded-lg border border-linesoft bg-surface2/50 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-fg">
+              <input
+                type="checkbox"
+                checked={useBrowser}
+                disabled={!webgpu}
+                onChange={(e) => setUseBrowser(e.target.checked)}
+              />
+              On-device model (browser · WebGPU)
+            </label>
+            <p className="mt-1 text-[11px] text-mute">
+              {webgpu
+                ? "Runs a small model fully in your browser on the GPU — no server, no key, private. Works on phones with WebGPU. First use downloads the weights (~1–2 GB), then it's cached & offline. Overrides the provider above."
+                : "This browser has no WebGPU — on-device generation isn't available here. Try Chrome/Edge, or Safari 18+."}
+            </p>
+            {useBrowser && webgpu && (
+              <select value={browserModelId} onChange={(e) => setBrowserModelId(e.target.value)} className={`${field} mt-2`}>
+                {BROWSER_MODELS.map((m) => (
+                  <option key={m.id} value={m.id}>{m.label}</option>
+                ))}
+                {!BROWSER_MODELS.some((m) => m.id === browserModelId) && <option value={DEFAULT_BROWSER_MODEL}>default</option>}
+              </select>
+            )}
+          </div>
 
           <button onClick={() => setAdvanced((a) => !a)} className="text-[11px] text-mute hover:text-fg">
             {advanced ? "− Advanced" : "+ Advanced (embedding & vision models)"}

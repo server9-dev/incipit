@@ -180,7 +180,8 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
             <Editor
               key={selected.id}
               node={selected}
-              projectId={projectId}
+              project={project}
+              entities={entities}
               connected={connected}
               onContentChange={(v) => patchNodeLocal(selected.id, { content: v })}
               onSynopsisChange={(v) => patchNodeLocal(selected.id, { synopsis: v })}
@@ -208,7 +209,7 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
 
       {showOutline && (
         <OutlineModal
-          projectId={projectId}
+          project={project}
           connected={connected}
           defaultPremise={project.synopsis}
           onClose={() => setShowOutline(false)}
