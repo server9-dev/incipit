@@ -221,7 +221,14 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
 
       {showStoryboard && (
         <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-void text-mute">Loading storyboard…</div>}>
-          <StoryboardModal projectId={projectId} onClose={() => setShowStoryboard(false)} />
+          <StoryboardModal
+            projectId={projectId}
+            onClose={() => setShowStoryboard(false)}
+            onIngested={async () => {
+              const { nodes: fresh } = await api.fetchProjectFull(projectId);
+              setNodes(fresh);
+            }}
+          />
         </Suspense>
       )}
     </div>

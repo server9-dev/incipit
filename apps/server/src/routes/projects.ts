@@ -2,6 +2,7 @@ import { Hono } from "hono";
 import { z } from "zod";
 import { projectTypeSchema } from "@incipit/shared";
 import { projects, nodes, entities } from "../db.js";
+import { ingestStoryboard } from "../storyboard.js";
 
 export const projectRoutes = new Hono();
 
@@ -41,6 +42,15 @@ projectRoutes.put("/:id/storyboard", async (c) => {
   const body = (await c.req.json().catch(() => ({}))) as { storyboard?: string };
   projects.setStoryboard(c.req.param("id"), body.storyboard ?? "");
   return c.json({ ok: true });
+});
+
+/** Turn the board's frames/cards into chapters/scenes (upsert by element id). */
+projectRoutes.post("/:id/storyboard/ingest", async (c) => {
+  const id = c.req.param("id");
+  if (!projects.get(id)) return c.json({ error: "Not found" }, 404);
+  const body = (await c.req.json().catch(() => ({}))) as { elements?: unknown[] };
+  const summary = ingestStoryboard(id, (body.elements ?? []) as never);
+  return c.json(summary);
 });
 
 projectRoutes.delete("/:id", (c) => {

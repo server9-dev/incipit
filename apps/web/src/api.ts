@@ -69,6 +69,12 @@ export const saveStoryboard = (id: string, storyboard: string) =>
     headers: { "content-type": "application/json" },
     body: JSON.stringify({ storyboard }),
   });
+export const ingestStoryboard = (id: string, elements: readonly unknown[]) =>
+  fetch(`/api/projects/${id}/storyboard/ingest`, {
+    method: "POST",
+    headers: { "content-type": "application/json" },
+    body: JSON.stringify({ elements }),
+  }).then(json<{ chapters: number; scenes: number; created: number; updated: number }>);
 
 /* nodes */
 export const createNode = (input: { projectId: string; parentId: string | null; type: NodeType; title: string }) =>

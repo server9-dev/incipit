@@ -85,6 +85,12 @@ db.exec(`
     db.exec("ALTER TABLE projects ADD COLUMN storyboard TEXT NOT NULL DEFAULT ''");
 }
 
+// migration: origin_id links a node back to the storyboard element it came from
+{
+  const cols = db.prepare("PRAGMA table_info(nodes)").all() as { name: string }[];
+  if (!cols.some((c) => c.name === "origin_id")) db.exec("ALTER TABLE nodes ADD COLUMN origin_id TEXT NOT NULL DEFAULT ''");
+}
+
 const now = () => new Date().toISOString();
 /** Strip HTML tags/entities so word counts and prompts see plain prose. */
 const stripHtml = (s: string) =>
@@ -189,17 +195,25 @@ export const nodes = {
     const r = db.prepare("SELECT * FROM nodes WHERE id = ?").get(id) as NodeRow | undefined;
     return r ? toNode(r) : undefined;
   },
-  create(input: { projectId: string; parentId: string | null; type: NodeType; title: string }): StoryNode {
+  create(input: { projectId: string; parentId: string | null; type: NodeType; title: string; originId?: string }): StoryNode {
     const id = nanoid();
     const t = now();
     const max = db
       .prepare("SELECT COALESCE(MAX(sort_order), -1) AS m FROM nodes WHERE project_id = ? AND parent_id IS ?")
       .get(input.projectId, input.parentId) as { m: number };
     db.prepare(
-      `INSERT INTO nodes (id, project_id, parent_id, type, title, sort_order, created_at, updated_at)
-       VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
-    ).run(id, input.projectId, input.parentId, input.type, input.title, max.m + 1, t, t);
+      `INSERT INTO nodes (id, project_id, parent_id, type, title, sort_order, origin_id, created_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+    ).run(id, input.projectId, input.parentId, input.type, input.title, max.m + 1, input.originId ?? "", t, t);
     return this.get(id)!;
+  },
+
+  /** Find a node previously created from a given storyboard element. */
+  findIdByOrigin(projectId: string, originId: string): string | undefined {
+    const r = db
+      .prepare("SELECT id FROM nodes WHERE project_id = ? AND origin_id = ? LIMIT 1")
+      .get(projectId, originId) as { id: string } | undefined;
+    return r?.id;
   },
   update(id: string, patch: Partial<Pick<StoryNode, "title" | "synopsis" | "content" | "ink" | "order" | "parentId">>): StoryNode | undefined {
     const cur = this.get(id);
