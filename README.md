@@ -20,28 +20,59 @@ one-variable switch to OpenAI, Anthropic, Google, or any OpenAI-compatible gatew
 - **Line-craft refine** — fiction-tuned tools on any selection: *show-don't-tell,
   tighten, vary rhythm, add sensory, polish dialogue, rewrite, expand, proofread*.
 
+## Runs anywhere, no server
+
+Incipit is **client-only** — there is no backend process. Everything (your
+manuscript, story bible, settings) lives in the browser via IndexedDB, and AI
+runs through whichever engine you pick:
+
+- **Ollama** (local) — default, talks to `localhost:11434` directly
+- **On-device (WebLLM, WebGPU)** — a small model in the browser, even on a phone; free + private
+- **Cloud API key** (OpenAI; Anthropic/Google in the desktop build)
+- **No model** — heuristic proofread/tighten, outline scaffolds, Tesseract OCR
+
+Ships three ways from one codebase: a **web app**, an installable **PWA**, and
+native **desktop + mobile** apps via **Tauri 2**.
+
 ## Stack
 
-| Layer    | Choice                                               |
-| -------- | ---------------------------------------------------- |
-| LLM      | Vercel AI SDK (Ollama / OpenAI / Anthropic / Google) |
-| Frontend | React + Vite + Tailwind                              |
-| Backend  | Hono (Node)                                          |
-| Storage  | SQLite (better-sqlite3)                              |
-| Monorepo | pnpm workspaces                                      |
+| Layer     | Choice                                                            |
+| --------- | ----------------------------------------------------------------- |
+| UI        | React + Vite + Tailwind + TipTap (ProseMirror)                    |
+| Storage   | IndexedDB via Dexie (in-browser, local-first)                     |
+| AI        | client-side: Ollama / OpenAI (Vercel AI SDK) + WebLLM on-device; Whisper & Tesseract for input |
+| Packaging | PWA (vite-plugin-pwa) + Tauri 2 (desktop & mobile)                |
+| Monorepo  | pnpm workspaces                                                   |
 
-## Quickstart
+## Quickstart (web / PWA)
 
 ```bash
 pnpm install
-cp .env.example .env          # defaults to local Ollama / gemma3-writer
+pnpm dev          # web app at http://localhost:5173 — no server needed
+```
 
-# one-time: pull the writer model and bake in a 16k context window
+Optional, for local AI via Ollama (otherwise use the on-device model or an API key):
+
+```bash
 ollama pull gemma3:12b
 ollama create gemma3-writer -f models/gemma3-writer.Modelfile
-
-pnpm dev                      # runs server (:8787) + web (:5173)
+# allow the browser origin to reach Ollama:
+OLLAMA_ORIGINS=* ollama serve
 ```
+
+`pnpm --filter @incipit/web build` produces an installable PWA in `apps/web/dist`.
+
+## Desktop & mobile (Tauri)
+
+```bash
+pnpm desktop:dev      # native dev window (loads the Vite dev server)
+pnpm desktop:build    # bundle a native desktop app
+```
+
+Requires the Rust toolchain plus your OS's webview build deps (on Debian/Ubuntu:
+`libwebkit2gtk-4.1-dev libdbus-1-dev pkg-config build-essential`). For mobile:
+`pnpm tauri android init` / `pnpm tauri ios init` (needs Android Studio / Xcode).
+The Tauri build also unlocks Anthropic/Google direct calls (no browser CORS).
 
 Open **http://localhost:5173**. Requires Node ≥ 22 and a running Ollama. The default
 writer is **Gemma 3 12B** with `num_ctx 16384` (Ollama otherwise caps context at ~2k
@@ -60,21 +91,14 @@ ANTHROPIC_API_KEY=sk-...
 
 ```
 packages/shared   types, project scaffolds, story-structure frameworks, AI prompt builders
-apps/server       Hono API: projects / nodes / entities CRUD + draft / outline / refine
-apps/web          React client: project list + manuscript tree + editor + story bible
+apps/web          the whole app — UI + client store (store/db.ts) + client AI (store/ai.ts)
+src-tauri         Tauri 2 shell for native desktop & mobile
+apps/server       legacy Node backend — no longer used by the app (kept for reference)
 ```
 
-## API
-
-| Method | Path                       | Purpose                                   |
-| ------ | -------------------------- | ----------------------------------------- |
-| GET    | `/api/health`              | status + active AI provider/model         |
-| *      | `/api/projects`            | project CRUD (+ `/:id/full` for the tree) |
-| *      | `/api/nodes`               | manuscript node CRUD                       |
-| *      | `/api/entities`            | story-bible CRUD                          |
-| POST   | `/api/ai/draft`            | draft/continue a scene, grounded in bible |
-| POST   | `/api/ai/outline`          | generate a beat-sheet outline             |
-| POST   | `/api/ai/refine`           | fiction line-craft refine of a passage    |
+The client store (`apps/web/src/store/db.ts`) and client AI (`apps/web/src/store/ai.ts`)
+replace what used to be the Node server; `apps/web/src/api.ts` keeps the same function
+surface so the UI is storage-agnostic.
 
 ## License
 

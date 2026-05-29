@@ -11,3 +11,6 @@ build/
 data/
 .vite/
 coverage/
+# Tauri
+src-tauri/target/
+src-tauri/gen/
