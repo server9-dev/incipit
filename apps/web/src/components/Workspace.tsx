@@ -7,6 +7,7 @@ import { StoryBible } from "./StoryBible.js";
 import { OutlineModal } from "./OutlineModal.js";
 import { ProjectSetup } from "./ProjectSetup.js";
 import { BookView } from "./BookView.js";
+import { manuscriptToMarkdown, downloadText } from "../exportText.js";
 
 // Excalidraw is heavy — load it only when the storyboard opens
 const StoryboardModal = lazy(() => import("./StoryboardModal.js").then((m) => ({ default: m.StoryboardModal })));
@@ -136,7 +137,14 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
           />
         </div>
         <div className="flex items-center gap-3">
-          <span className="text-xs text-mute">{saving ? "saving…" : "saved"}</span>
+          <span className="text-xs text-mute">{saving ? "saving…" : "saved ✓"}</span>
+          <button
+            onClick={() => downloadText(`${project.title || "manuscript"}.md`, manuscriptToMarkdown(project, nodes))}
+            title="Download the whole manuscript as a Markdown file to your computer"
+            className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated"
+          >
+            ⤓ Save .md
+          </button>
           <button
             onClick={() => setShowOutline(true)}
             className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated"
