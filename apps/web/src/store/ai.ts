@@ -1,11 +1,16 @@
 import { createOpenAI } from "@ai-sdk/openai";
-import { streamText, generateText, embed, embedMany, type LanguageModel } from "ai";
+import { createAnthropic } from "@ai-sdk/anthropic";
+import { createGoogleGenerativeAI } from "@ai-sdk/google";
+import { streamText, generateText, embed, embedMany, type LanguageModel, type EmbeddingModel } from "ai";
 import type { Entity } from "@incipit/shared";
 import { settings, entities } from "./db.js";
 
-/* Client-side AI: talks to Ollama (OpenAI-compatible) or OpenAI directly from
-   the browser — no server. WebLLM (on-device) is handled separately. Anthropic
-   /Google direct-from-browser are CORS-blocked; those await the desktop build. */
+/*
+ * Client-side AI. In the browser, generation works with Ollama (localhost) and
+ * the on-device WebLLM engine; cloud providers are CORS-blocked there. Inside
+ * the Tauri desktop/mobile app we route through the Tauri HTTP plugin (no CORS),
+ * so OpenAI / Anthropic / Google all work with a pasted key.
+ */
 
 export type ProviderName = "ollama" | "openai" | "anthropic" | "google";
 const DEFAULT_MODEL: Record<ProviderName, string> = {
@@ -27,6 +32,18 @@ const DEFAULT_VISION: Record<ProviderName, string> = {
   google: "gemini-2.0-flash",
 };
 
+export const isTauri = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+let cachedFetch: typeof fetch | undefined;
+/** In Tauri, use the HTTP plugin's fetch (bypasses CORS); in the browser, default fetch. */
+async function platformFetch(): Promise<typeof fetch | undefined> {
+  if (!isTauri()) return undefined;
+  if (cachedFetch) return cachedFetch;
+  const mod = await import("@tauri-apps/plugin-http");
+  cachedFetch = mod.fetch as unknown as typeof fetch;
+  return cachedFetch;
+}
+
 export type Effective = {
   provider: ProviderName;
   model: string;
@@ -34,6 +51,8 @@ export type Effective = {
   visionModel: string;
   ollamaBaseUrl: string;
   openaiKey?: string;
+  anthropicKey?: string;
+  googleKey?: string;
 };
 
 export async function effective(): Promise<Effective> {
@@ -47,29 +66,50 @@ export async function effective(): Promise<Effective> {
     visionModel: s.visionModel || DEFAULT_VISION[provider],
     ollamaBaseUrl: s.ollamaBaseUrl || "http://localhost:11434/v1",
     openaiKey: s.openaiKey,
+    anthropicKey: s.anthropicKey,
+    googleKey: s.googleKey,
   };
 }
 
-function clientFor(e: Effective): (id: string) => LanguageModel {
-  if (e.provider === "ollama") return createOpenAI({ baseURL: e.ollamaBaseUrl, apiKey: "ollama" });
-  if (e.provider === "openai") return createOpenAI({ apiKey: e.openaiKey });
-  throw new Error(
-    `In the browser build, generation supports Ollama, OpenAI, or the on-device model. "${e.provider}" needs the desktop app.`,
-  );
+function textModel(e: Effective, modelId: string, f: typeof fetch | undefined): LanguageModel {
+  const o = f ? { fetch: f } : {};
+  switch (e.provider) {
+    case "ollama":
+      return createOpenAI({ baseURL: e.ollamaBaseUrl, apiKey: "ollama", ...o })(modelId);
+    case "openai":
+      return createOpenAI({ apiKey: e.openaiKey, ...o })(modelId);
+    case "anthropic":
+      return createAnthropic({ apiKey: e.anthropicKey, ...o })(modelId);
+    case "google":
+      return createGoogleGenerativeAI({ apiKey: e.googleKey, ...o })(modelId);
+  }
 }
 
-/** Stream a system+user completion from the configured cloud/local provider. */
+function embedModel(e: Effective, f: typeof fetch | undefined): EmbeddingModel<string> | null {
+  if (!e.embedModel) return null;
+  const o = f ? { fetch: f } : {};
+  switch (e.provider) {
+    case "ollama":
+      return createOpenAI({ baseURL: e.ollamaBaseUrl, apiKey: "ollama", ...o }).textEmbeddingModel(e.embedModel);
+    case "openai":
+      return createOpenAI({ apiKey: e.openaiKey, ...o }).textEmbeddingModel(e.embedModel);
+    case "google":
+      return createGoogleGenerativeAI({ apiKey: e.googleKey, ...o }).textEmbeddingModel(e.embedModel);
+    case "anthropic":
+      return null;
+  }
+}
+
 export async function clientStream({ system, prompt }: { system: string; prompt: string }, onChunk: (t: string) => void) {
   const e = await effective();
-  const model = clientFor(e)(e.model);
+  const model = textModel(e, e.model, await platformFetch());
   const res = streamText({ model, system, prompt });
   for await (const chunk of res.textStream) onChunk(chunk);
 }
 
-/** Transcribe a handwriting image via a vision-capable model. */
 export async function clientVision(image: string): Promise<string> {
   const e = await effective();
-  const model = clientFor(e)(e.visionModel);
+  const model = textModel(e, e.visionModel, await platformFetch());
   const { text } = await generateText({
     model,
     messages: [
@@ -85,7 +125,7 @@ export async function clientVision(image: string): Promise<string> {
   return text.trim();
 }
 
-/* embeddings-based story-bible retrieval (best-effort; [] when unavailable) */
+/* ---- story-bible semantic retrieval (best-effort) ---- */
 function cosine(a: number[], b: number[]): number {
   let dot = 0, na = 0, nb = 0;
   for (let i = 0; i < a.length; i++) { dot += a[i]! * b[i]!; na += a[i]! * a[i]!; nb += b[i]! * b[i]!; }
@@ -94,11 +134,8 @@ function cosine(a: number[], b: number[]): number {
 
 export async function relevantEntities(projectId: string, query: string, k = 6, threshold = 0.5): Promise<Entity[]> {
   const e = await effective();
-  if (!e.embedModel) return [];
-  let model;
-  if (e.provider === "ollama") model = createOpenAI({ baseURL: e.ollamaBaseUrl, apiKey: "ollama" }).textEmbeddingModel(e.embedModel);
-  else if (e.provider === "openai") model = createOpenAI({ apiKey: e.openaiKey }).textEmbeddingModel(e.embedModel);
-  else return [];
+  const model = embedModel(e, await platformFetch());
+  if (!model) return [];
   const rows = await entities.embeddingRows(projectId);
   if (!rows.length) return [];
   try {
@@ -118,7 +155,7 @@ export async function relevantEntities(projectId: string, query: string, k = 6, 
   }
 }
 
-/* connection + model discovery for the settings UI */
+/* ---- connection + discovery for the settings UI ---- */
 export async function effectiveConfig() {
   const e = await effective();
   return { provider: e.provider, model: e.model, embedModel: e.embedModel, visionModel: e.visionModel };
@@ -128,22 +165,26 @@ export async function connectionStatus(): Promise<{ connected: boolean; detail: 
   const e = await effective();
   if (e.provider === "ollama") {
     try {
+      const f = (await platformFetch()) ?? fetch;
       const root = e.ollamaBaseUrl.replace(/\/v1\/?$/, "");
-      const res = await fetch(`${root}/api/tags`, { signal: AbortSignal.timeout(1500) });
+      const res = await f(`${root}/api/tags`, { signal: AbortSignal.timeout(1500) });
       return res.ok ? { connected: true, detail: "Ollama reachable" } : { connected: false, detail: "Ollama not responding" };
     } catch {
       return { connected: false, detail: "Ollama not running" };
     }
   }
-  if (e.provider === "openai") return e.openaiKey ? { connected: true, detail: "API key set" } : { connected: false, detail: "No API key" };
-  return { connected: false, detail: `${e.provider} needs the desktop app (browser CORS)` };
+  const key = e.provider === "openai" ? e.openaiKey : e.provider === "anthropic" ? e.anthropicKey : e.googleKey;
+  if (!key) return { connected: false, detail: "No API key — add one in settings" };
+  if (isTauri()) return { connected: true, detail: "API key set" };
+  return { connected: false, detail: "Cloud keys work in the desktop app (browser blocks direct calls)" };
 }
 
 export async function ollamaModels(): Promise<string[]> {
   const e = await effective();
   try {
+    const f = (await platformFetch()) ?? fetch;
     const root = e.ollamaBaseUrl.replace(/\/v1\/?$/, "");
-    const res = await fetch(`${root}/api/tags`, { signal: AbortSignal.timeout(1500) });
+    const res = await f(`${root}/api/tags`, { signal: AbortSignal.timeout(1500) });
     if (!res.ok) return [];
     const data = (await res.json()) as { models?: { name: string }[] };
     return (data.models ?? []).map((m) => m.name).sort();

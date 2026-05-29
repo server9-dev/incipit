@@ -13,7 +13,13 @@ export const DEFAULT_BROWSER_MODEL = BROWSER_MODELS[0]!.id;
 export const webgpuAvailable = () =>
   typeof navigator !== "undefined" && "gpu" in navigator && !!(navigator as { gpu?: unknown }).gpu;
 
-export const browserEngineEnabled = () => localStorage.getItem("incipit-engine") === "browser";
+// Default to the on-device model on first run when WebGPU is available — zero
+// setup, fully private. Users can switch to Ollama/cloud in settings.
+export const browserEngineEnabled = () => {
+  const v = localStorage.getItem("incipit-engine");
+  if (v === null) return webgpuAvailable();
+  return v === "browser";
+};
 export const getBrowserModelId = () => localStorage.getItem("incipit-browser-model") || DEFAULT_BROWSER_MODEL;
 export function setBrowserEngine(enabled: boolean, modelId?: string) {
   localStorage.setItem("incipit-engine", enabled ? "browser" : "server");
