@@ -4,8 +4,22 @@ An open-source, **local-first** fiction writing studio — for **novels, short s
 verse**. Plan structure, draft prose, and refine your craft with AI that runs entirely on
 your own machine and stays consistent with your story bible.
 
-Provider-agnostic: runs against [Ollama](https://ollama.com) by default, with a
-one-variable switch to OpenAI, Anthropic, Google, or any OpenAI-compatible gateway.
+Provider-agnostic: runs on an on-device model (WebGPU), local [Ollama](https://ollama.com),
+or a cloud key — your writing never leaves your machine.
+
+## Download
+
+Get the latest native app from the [**Releases**](https://github.com/server9-dev/incipit/releases/latest) page:
+
+| Platform | File |
+| -------- | ---- |
+| **macOS** (Apple Silicon + Intel) | `.dmg` (universal) |
+| **Windows** | `.exe` / `.msi` installer |
+| **Linux** | `.AppImage` or `.deb` |
+| **Android** | debug `.apk` (manual build job) |
+
+Or just **use it in the browser** — open the web build and "Install" it as a PWA on
+desktop or phone. No account, no server; everything runs locally.
 
 ## Features
 
