@@ -80,6 +80,10 @@ export function downloadText(filename: string, text: string, mime = "text/markdo
   const a = document.createElement("a");
   a.href = url;
   a.download = filename;
+  // must be in the DOM for the click to trigger a download in Edge/Firefox
+  a.style.display = "none";
+  document.body.appendChild(a);
   a.click();
+  a.remove();
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
