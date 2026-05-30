@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { allowedChildTypes, canContain, type StoryNode, type NodeType } from "@incipit/shared";
 
 type TreeItem = StoryNode & { children: TreeItem[] };
@@ -43,6 +43,8 @@ export function ManuscriptTree({
   onAddRoot,
   onDelete,
   onMove,
+  onRename,
+  onAddFrontMatter,
 }: {
   nodes: StoryNode[];
   selectedId: string | null;
@@ -51,10 +53,13 @@ export function ManuscriptTree({
   onAddRoot: (type: NodeType) => void;
   onDelete: (n: StoryNode) => void;
   onMove: (nodeId: string, parentId: string | null, index: number) => void;
+  onRename: (id: string, title: string) => void;
+  onAddFrontMatter: (title: string) => void;
 }) {
   const tree = useMemo(() => buildTree(nodes), [nodes]);
   const byId = useMemo(() => new Map(nodes.map((n) => [n.id, n])), [nodes]);
-  const [draggedId, setDraggedId] = useState<string | null>(null);
+  const [draggedId, setDraggedId] = useState<string | null>(null); // for the dragging row's dimming
+  const draggedIdRef = useRef<string | null>(null); // read synchronously during dragover (state lags a render)
   const [hint, setHint] = useState<DropHint | null>(null);
 
   const descendantsOf = (id: string): Set<string> => {
@@ -73,6 +78,7 @@ export function ManuscriptTree({
 
   /** Resolve where a drop on `item` at vertical ratio `rel` would land. */
   const computeDrop = (item: StoryNode, rel: number): DropTarget | null => {
+    const draggedId = draggedIdRef.current; // live value, not the lagging state
     if (!draggedId || draggedId === item.id) return null;
     const dragged = byId.get(draggedId);
     if (!dragged) return null;
@@ -117,7 +123,9 @@ export function ManuscriptTree({
   const onRowDrop = (item: StoryNode) => (e: React.DragEvent) => {
     const drop = computeDrop(item, relOf(e));
     e.preventDefault();
-    if (drop && draggedId) onMove(draggedId, drop.parentId, drop.index);
+    const dragId = draggedIdRef.current;
+    if (drop && dragId) onMove(dragId, drop.parentId, drop.index);
+    draggedIdRef.current = null;
     setDraggedId(null);
     setHint(null);
   };
@@ -135,8 +143,13 @@ export function ManuscriptTree({
           onSelect={onSelect}
           onAdd={onAdd}
           onDelete={onDelete}
-          onDragStart={(id) => setDraggedId(id)}
+          onRename={onRename}
+          onDragStart={(id) => {
+            draggedIdRef.current = id;
+            setDraggedId(id);
+          }}
           onDragEnd={() => {
+            draggedIdRef.current = null;
             setDraggedId(null);
             setHint(null);
           }}
@@ -144,12 +157,26 @@ export function ManuscriptTree({
           onRowDrop={onRowDrop}
         />
       ))}
-      <div className="mt-2 flex flex-wrap gap-2 border-t border-linesoft px-1 pt-2">
+      <div className="mt-2 flex flex-wrap items-center gap-2 border-t border-linesoft px-1 pt-2">
         {(["folder", "chapter", "scene", "poem"] as NodeType[]).map((t) => (
           <button key={t} onClick={() => onAddRoot(t)} className="text-[11px] text-mute hover:text-fg">
             + {t === "folder" ? "Section" : t[0]!.toUpperCase() + t.slice(1)}
           </button>
         ))}
+        <select
+          value=""
+          onChange={(e) => {
+            if (e.target.value) onAddFrontMatter(e.target.value);
+            e.currentTarget.value = "";
+          }}
+          className="rounded border border-linesoft bg-surface px-1 py-0.5 text-[11px] text-mute outline-none"
+          title="Add front matter to the top of the manuscript"
+        >
+          <option value="">+ Front matter…</option>
+          {["Title Page", "Copyright", "Dedication", "Acknowledgements", "Prologue"].map((t) => (
+            <option key={t} value={t}>{t}</option>
+          ))}
+        </select>
       </div>
     </div>
   );
@@ -164,6 +191,7 @@ function Row({
   onSelect,
   onAdd,
   onDelete,
+  onRename,
   onDragStart,
   onDragEnd,
   onRowDragOver,
@@ -177,6 +205,7 @@ function Row({
   onSelect: (n: StoryNode) => void;
   onAdd: (parent: StoryNode, type: NodeType) => void;
   onDelete: (n: StoryNode) => void;
+  onRename: (id: string, title: string) => void;
   onDragStart: (id: string) => void;
   onDragEnd: () => void;
   onRowDragOver: (item: StoryNode) => (e: React.DragEvent) => void;
@@ -185,6 +214,17 @@ function Row({
   const selected = selectedId === item.id;
   const dragging = draggedId === item.id;
   const showHint = hint?.id === item.id ? hint.zone : null;
+  const [editing, setEditing] = useState(false);
+  const [draft, setDraft] = useState(item.title);
+  const beginRename = () => {
+    setDraft(item.title);
+    setEditing(true);
+  };
+  const commitRename = () => {
+    setEditing(false);
+    const t = draft.trim();
+    if (t && t !== item.title) onRename(item.id, t);
+  };
 
   return (
     <div>
@@ -206,12 +246,32 @@ function Row({
         {showHint === "before" && <span className="pointer-events-none absolute inset-x-1 -top-px h-0.5 rounded bg-brand" />}
         {showHint === "after" && <span className="pointer-events-none absolute inset-x-1 -bottom-px h-0.5 rounded bg-brand" />}
         <span className="w-3 shrink-0 cursor-grab text-center text-xs opacity-60">{ICON[item.type]}</span>
-        <button onClick={() => onSelect(item)} className="flex-1 truncate text-left">
-          {item.title}
-          {item.type !== "folder" && item.wordCount > 0 && (
-            <span className={`ml-1 text-[10px] ${selected ? "text-ink/70" : "text-mute"}`}>{item.wordCount}w</span>
-          )}
-        </button>
+        {editing ? (
+          <input
+            autoFocus
+            value={draft}
+            onChange={(e) => setDraft(e.target.value)}
+            onBlur={commitRename}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") commitRename();
+              if (e.key === "Escape") setEditing(false);
+            }}
+            onDragStart={(e) => e.preventDefault()}
+            className="flex-1 rounded bg-surface px-1 text-sm text-fg outline-none ring-1 ring-brand"
+          />
+        ) : (
+          <button
+            onClick={() => onSelect(item)}
+            onDoubleClick={beginRename}
+            title="Double-click to rename"
+            className="flex-1 truncate text-left"
+          >
+            {item.title}
+            {item.type !== "folder" && item.wordCount > 0 && (
+              <span className={`ml-1 text-[10px] ${selected ? "text-ink/70" : "text-mute"}`}>{item.wordCount}w</span>
+            )}
+          </button>
+        )}
         <button
           onClick={() => onDelete(item)}
           className={`px-1 text-xs opacity-0 transition group-hover:opacity-100 ${
@@ -234,6 +294,7 @@ function Row({
           onSelect={onSelect}
           onAdd={onAdd}
           onDelete={onDelete}
+          onRename={onRename}
           onDragStart={onDragStart}
           onDragEnd={onDragEnd}
           onRowDragOver={onRowDragOver}

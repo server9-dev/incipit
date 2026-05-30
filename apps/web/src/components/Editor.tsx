@@ -5,6 +5,7 @@ import Highlight from "@tiptap/extension-highlight";
 import { TextStyle, FontFamily } from "@tiptap/extension-text-style";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
+import Image from "@tiptap/extension-image";
 import { REFINE_LABELS, type Project, type StoryNode, type Entity, type RefineAction } from "@incipit/shared";
 import { transcribe as transcribeApi } from "../api.js";
 import { draftStream, refineStream } from "../clientai.js";
@@ -105,6 +106,7 @@ export function Editor({
       TextStyle,
       FontFamily,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
+      Image.configure({ allowBase64: true, inline: false }),
       Placeholder.configure({
         placeholder: isVerse
           ? "Write your verse here, or hit Draft verse."

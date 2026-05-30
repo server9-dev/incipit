@@ -23,6 +23,11 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
   const [showStoryboard, setShowStoryboard] = useState(false);
   const [toolState, setToolState] = useState<ToolState | null>(null);
   const toolActionsRef = useRef<ToolActions | null>(null);
+  const [navPinned, setNavPinned] = useState(() => localStorage.getItem("incipit-nav-pinned") === "1");
+  const [navHover, setNavHover] = useState(false);
+  useEffect(() => {
+    localStorage.setItem("incipit-nav-pinned", navPinned ? "1" : "0");
+  }, [navPinned]);
   const [saving, setSaving] = useState(false);
 
   const nodeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -91,6 +96,14 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
     await api.moveNode(nodeId, parentId, index);
     const { nodes: fresh } = await api.fetchProjectFull(projectId);
     setNodes(fresh);
+  }
+
+  async function addFrontMatter(title: string) {
+    const n = await api.createNode({ projectId, parentId: null, type: "scene", title });
+    await api.moveNode(n.id, null, 0); // front matter goes at the very top
+    const { nodes: fresh } = await api.fetchProjectFull(projectId);
+    setNodes(fresh);
+    setSelectedId(n.id);
   }
 
   /* ----- project settings ----- */
@@ -169,23 +182,59 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
         </div>
       </header>
 
-      <div className="flex min-h-0 flex-1">
-        <aside className="flex w-64 flex-col border-r border-linesoft bg-surface">
-          <ProjectSetup project={project} onChange={patchProject} />
-          <ToolsMenu state={toolState} actionsRef={toolActionsRef} />
-          {/* gradient divider between the AI tools and the manuscript nav */}
-          <div className="h-0.5 shrink-0" style={{ background: "linear-gradient(90deg, #00D4FF, #9B59B6, #FF0080)" }} />
-          <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-mute">Manuscript</div>
-          <ManuscriptTree
-            nodes={nodes}
-            selectedId={selectedId}
-            onSelect={(n) => setSelectedId(n.id)}
-            onAdd={addNode}
-            onAddRoot={(type) => addNode(null, type)}
-            onDelete={removeNode}
-            onMove={moveNode}
-          />
-        </aside>
+      <div className="relative flex min-h-0 flex-1">
+        {(() => {
+          const inner = (
+            <>
+              <div className="flex items-center justify-between border-b border-linesoft px-3 py-1.5">
+                <span className="truncate text-[10px] font-semibold uppercase tracking-wide text-mute">Navigation</span>
+                <button
+                  onClick={() => setNavPinned((p) => !p)}
+                  title={navPinned ? "Unlock — auto-hide the sidebar" : "Lock the sidebar open"}
+                  className="text-xs text-mute hover:text-fg"
+                >
+                  {navPinned ? "🔒" : "🔓"}
+                </button>
+              </div>
+              <ProjectSetup project={project} onChange={patchProject} />
+              <ToolsMenu state={toolState} actionsRef={toolActionsRef} />
+              {/* gradient divider between the AI tools and the manuscript nav */}
+              <div className="h-0.5 shrink-0" style={{ background: "linear-gradient(90deg, #00D4FF, #9B59B6, #FF0080)" }} />
+              <div className="px-3 py-1.5 text-xs font-semibold uppercase tracking-wide text-mute">Manuscript</div>
+              <ManuscriptTree
+                nodes={nodes}
+                selectedId={selectedId}
+                onSelect={(n) => setSelectedId(n.id)}
+                onAdd={addNode}
+                onAddRoot={(type) => addNode(null, type)}
+                onDelete={removeNode}
+                onMove={moveNode}
+                onRename={(id, title) => patchNodeLocal(id, { title })}
+                onAddFrontMatter={addFrontMatter}
+              />
+            </>
+          );
+          if (navPinned) return <aside className="flex w-64 shrink-0 flex-col border-r border-linesoft bg-surface">{inner}</aside>;
+          return (
+            <>
+              {/* collapsed: a thin gradient rail; hover to reveal the sidebar */}
+              <div
+                onMouseEnter={() => setNavHover(true)}
+                title="Hover to open navigation"
+                className="w-2 shrink-0 cursor-pointer"
+                style={{ background: "linear-gradient(180deg, #00D4FF, #9B59B6, #FF0080)" }}
+              />
+              {navHover && (
+                <aside
+                  onMouseLeave={() => setNavHover(false)}
+                  className="absolute inset-y-0 left-0 z-20 flex w-64 flex-col border-r border-line bg-surface shadow-2xl"
+                >
+                  {inner}
+                </aside>
+              )}
+            </>
+          );
+        })()}
 
         <main className="min-h-0 flex-1">
           {selected && selected.type !== "folder" && selected.type !== "chapter" ? (

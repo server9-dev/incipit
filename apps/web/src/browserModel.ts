@@ -62,23 +62,31 @@ export async function ensureEngine(onProgress?: Progress): Promise<MLCEngine> {
   return loading;
 }
 
-/** Stream a system+user completion from the on-device model. */
+// WebGPU can only run one generation at a time — concurrent calls corrupt the
+// GPU buffers ("Buffer was unmapped…"). Serialize all generations on one chain.
+let genChain: Promise<unknown> = Promise.resolve();
+
+/** Stream a system+user completion from the on-device model (serialized). */
 export async function browserStream(
   { system, prompt }: { system: string; prompt: string },
   onChunk: (t: string) => void,
   onProgress?: Progress,
 ): Promise<void> {
-  const e = await ensureEngine(onProgress);
-  const stream = await e.chat.completions.create({
-    messages: [
-      { role: "system", content: system },
-      { role: "user", content: prompt },
-    ],
-    stream: true,
-    temperature: 0.8,
+  const run = genChain.catch(() => {}).then(async () => {
+    const e = await ensureEngine(onProgress);
+    const stream = await e.chat.completions.create({
+      messages: [
+        { role: "system", content: system },
+        { role: "user", content: prompt },
+      ],
+      stream: true,
+      temperature: 0.8,
+    });
+    for await (const chunk of stream) {
+      const d = chunk.choices[0]?.delta?.content;
+      if (d) onChunk(d);
+    }
   });
-  for await (const chunk of stream) {
-    const d = chunk.choices[0]?.delta?.content;
-    if (d) onChunk(d);
-  }
+  genChain = run;
+  return run;
 }
