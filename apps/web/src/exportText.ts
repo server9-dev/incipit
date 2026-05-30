@@ -83,6 +83,72 @@ export function manuscriptToMarkdown(project: Project, nodes: StoryNode[]): stri
   return out.join("\n\n") + "\n";
 }
 
+const escHtml = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+
+/** Whole manuscript → plain text (titles + de-formatted prose). */
+export function manuscriptToText(project: Project, nodes: StoryNode[]): string {
+  const out: string[] = [project.title.toUpperCase()];
+  if (project.synopsis) out.push(project.synopsis);
+  const bodyText = (html: string) => {
+    const doc = new DOMParser().parseFromString(html || "", "text/html");
+    return Array.from(doc.body.children)
+      .map((el) => (el.textContent ?? "").trim())
+      .filter(Boolean)
+      .join("\n\n") || (doc.body.textContent ?? "").trim();
+  };
+  const walk = (node: TreeItem) => {
+    if (node.type === "folder") out.push(`\n\n${node.title.toUpperCase()}`);
+    else {
+      out.push(`\n\n${node.title}`);
+      if (node.pov) out.push(`— ${node.pov}`);
+      if (node.epigraph) out.push(node.epigraph);
+      if (node.type !== "chapter") {
+        const body = bodyText(node.content);
+        if (body) out.push(body);
+      }
+    }
+    node.children.forEach(walk);
+  };
+  buildTree(nodes).forEach(walk);
+  return out.join("\n") + "\n";
+}
+
+/** Whole manuscript → a styled, self-contained HTML document. */
+export function manuscriptToHtml(project: Project, nodes: StoryNode[]): string {
+  const body: string[] = [`<h1 class="title">${escHtml(project.title)}</h1>`];
+  if (project.synopsis) body.push(`<p class="synopsis">${escHtml(project.synopsis)}</p>`);
+  const walk = (node: TreeItem) => {
+    if (node.type === "folder") body.push(`<h1 class="part">${escHtml(node.title)}</h1>`);
+    else {
+      body.push(`<h2 class="chapter">${escHtml(node.title)}</h2>`);
+      if (node.pov) body.push(`<p class="pov">— ${escHtml(node.pov)}</p>`);
+      if (node.epigraph) body.push(`<blockquote class="epigraph">${escHtml(node.epigraph)}</blockquote>`);
+      if (node.type !== "chapter" && node.content) body.push(`<div class="scene">${node.content}</div>`);
+    }
+    node.children.forEach(walk);
+  };
+  buildTree(nodes).forEach(walk);
+  return `<!doctype html>
+<html lang="en"><head><meta charset="utf-8">
+<title>${escHtml(project.title)}</title>
+<style>
+  body { font-family: "EB Garamond", Georgia, serif; max-width: 40rem; margin: 3rem auto; padding: 0 1.5rem; line-height: 1.6; color: #1a1a1a; }
+  .title { text-align: center; font-size: 2.2rem; }
+  .synopsis { text-align: center; font-style: italic; color: #555; }
+  .part { text-align: center; margin-top: 4rem; font-size: 1.8rem; }
+  .chapter { text-align: center; margin-top: 3rem; font-weight: 600; }
+  .pov { text-align: center; font-style: italic; color: #555; margin-top: -0.5rem; }
+  .epigraph { font-style: italic; color: #444; text-align: center; border: none; }
+  .scene p { text-indent: 1.5em; margin: 0; text-align: justify; }
+  .scene p:first-child { text-indent: 0; }
+  img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
+</style></head>
+<body>
+${body.join("\n")}
+</body></html>
+`;
+}
+
 export function downloadText(filename: string, text: string, mime = "text/markdown") {
   void savePlatform(filename, text, mime);
 }
