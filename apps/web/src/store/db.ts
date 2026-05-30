@@ -76,14 +76,14 @@ export const projects = {
     const r = await db.projects.get(pid);
     return r ? stripRow(r, "storyboard") : undefined;
   },
-  async create(title: string, type: ProjectType): Promise<Project> {
+  async create(title: string, type: ProjectType, scaffold = true): Promise<Project> {
     const t = now();
     const p: ProjectRow = {
       id: id(), title, type, synopsis: "", pov: "", tense: "", genre: "", styleNotes: "",
       storyboard: "", createdAt: t, updatedAt: t,
     };
     await db.projects.add(p);
-    await instantiateScaffold(p.id, SCAFFOLDS[type] ?? [], null);
+    if (scaffold) await instantiateScaffold(p.id, SCAFFOLDS[type] ?? [], null);
     return stripRow(p, "storyboard");
   },
   async update(pid: string, patch: Partial<Project>): Promise<Project | undefined> {

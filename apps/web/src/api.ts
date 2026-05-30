@@ -58,7 +58,7 @@ export const updateSettings = async (patch: Record<string, string>) => {
 
 /* projects */
 export const listProjects = () => projects.list();
-export const createProject = (title: string, type: ProjectType) => projects.create(title, type);
+export const createProject = (title: string, type: ProjectType, scaffold = true) => projects.create(title, type, scaffold);
 export const deleteProject = (id: string) => projects.remove(id);
 export const updateProject = (id: string, patch: Partial<Project>) =>
   projects.update(id, patch) as Promise<Project>;
