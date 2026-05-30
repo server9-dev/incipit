@@ -37,6 +37,15 @@ body {
   background: rgba(0, 212, 255, 0.3);
 }
 
+/* In the writing surface the paper can be dark (Night), so a translucent
+   selection would leave light text unreadable. Repaint both the background
+   and the text to a fixed, high-contrast pair regardless of paper color. */
+.incipit-prose ::selection,
+.incipit-prose::selection {
+  background: #9fe6ff;
+  color: #10131a;
+}
+
 /* thin dark scrollbars */
 * {
   scrollbar-width: thin;
@@ -104,7 +113,9 @@ body {
 .incipit-prose mark {
   border-radius: 2px;
   padding: 0 1px;
-  color: #1a1a1a; /* dark text on the pastel highlight, readable on paper */
+  /* dark text on the pastel highlight — !important so a dark paper's light
+     inherited text color can't leave it unreadable on the highlight */
+  color: #1a1a1a !important;
 }
 .incipit-prose strong {
   font-weight: 700;
