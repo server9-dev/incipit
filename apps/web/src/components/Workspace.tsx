@@ -25,9 +25,14 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
   const toolActionsRef = useRef<ToolActions | null>(null);
   const [navPinned, setNavPinned] = useState(() => localStorage.getItem("incipit-nav-pinned") === "1");
   const [navHover, setNavHover] = useState(false);
+  const [bibPinned, setBibPinned] = useState(() => localStorage.getItem("incipit-bib-pinned") !== "0");
+  const [bibHover, setBibHover] = useState(false);
   useEffect(() => {
     localStorage.setItem("incipit-nav-pinned", navPinned ? "1" : "0");
   }, [navPinned]);
+  useEffect(() => {
+    localStorage.setItem("incipit-bib-pinned", bibPinned ? "1" : "0");
+  }, [bibPinned]);
   const [saving, setSaving] = useState(false);
 
   const nodeTimers = useRef<Map<string, ReturnType<typeof setTimeout>>>(new Map());
@@ -268,13 +273,39 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
           )}
         </main>
 
-        <StoryBible
-          entities={entities}
-          projectId={projectId}
-          onCreate={createEntity}
-          onUpdate={patchEntity}
-          onDelete={removeEntity}
-        />
+        {(() => {
+          const bible = (
+            <StoryBible
+              entities={entities}
+              projectId={projectId}
+              onCreate={createEntity}
+              onUpdate={patchEntity}
+              onDelete={removeEntity}
+              pinned={bibPinned}
+              onTogglePin={() => setBibPinned((p) => !p)}
+            />
+          );
+          if (bibPinned) return <aside className="flex w-72 shrink-0 flex-col border-l border-linesoft bg-surface">{bible}</aside>;
+          return (
+            <>
+              {/* collapsed: a thin gradient rail on the right; hover to reveal the story bible */}
+              <div
+                onMouseEnter={() => setBibHover(true)}
+                title="Hover to open the story bible"
+                className="w-2 shrink-0 cursor-pointer"
+                style={{ background: "linear-gradient(180deg, #FF0080, #9B59B6, #00D4FF)" }}
+              />
+              {bibHover && (
+                <aside
+                  onMouseLeave={() => setBibHover(false)}
+                  className="absolute inset-y-0 right-0 z-20 flex w-72 flex-col border-l border-line bg-surface shadow-2xl"
+                >
+                  {bible}
+                </aside>
+              )}
+            </>
+          );
+        })()}
       </div>
 
       {showOutline && (

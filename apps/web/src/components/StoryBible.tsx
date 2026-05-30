@@ -9,12 +9,16 @@ export function StoryBible({
   onCreate,
   onUpdate,
   onDelete,
+  pinned,
+  onTogglePin,
 }: {
   entities: Entity[];
   projectId: string;
   onCreate: (type: EntityType, name: string) => void;
   onUpdate: (id: string, patch: Partial<Pick<Entity, "name" | "summary" | "notes">>) => void;
   onDelete: (id: string) => void;
+  pinned: boolean;
+  onTogglePin: () => void;
 }) {
   const [openId, setOpenId] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
@@ -23,9 +27,16 @@ export function StoryBible({
   void projectId;
 
   return (
-    <aside className="flex h-full w-72 flex-col border-l border-linesoft bg-surface">
-      <div className="border-b border-linesoft px-3 py-2 text-xs font-semibold uppercase tracking-wide text-mute">
-        Story bible
+    <>
+      <div className="flex items-center justify-between border-b border-linesoft px-3 py-2">
+        <span className="text-xs font-semibold uppercase tracking-wide text-mute">Story bible</span>
+        <button
+          onClick={onTogglePin}
+          title={pinned ? "Unlock — auto-hide the story bible" : "Lock the story bible open"}
+          className="text-xs text-mute hover:text-fg"
+        >
+          {pinned ? "🔒" : "🔓"}
+        </button>
       </div>
 
       <div className="flex gap-1 border-b border-linesoft p-2">
@@ -108,6 +119,6 @@ export function StoryBible({
           </p>
         )}
       </div>
-    </aside>
+    </>
   );
 }
