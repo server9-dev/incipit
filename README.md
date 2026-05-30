@@ -23,16 +23,51 @@ desktop or phone. No account, no server; everything runs locally.
 
 ## Features
 
-- **Structured manuscript** — Project → sections → chapters → scenes (plus short-story
-  and verse project types). Add, navigate, and organize a whole book.
-- **Story bible** — wiki-style characters, locations, items, and lore. The AI pulls these
-  into context so names and facts stay consistent when it drafts.
-- **AI scene drafting** — write a scene brief, hit **Draft**, and get prose in your
-  project's POV, tense, genre, and voice. **Continue** extends what's there.
-- **Story structure** — generate beat-sheet outlines (Three-Act, Save the Cat, Hero's
-  Journey, Snowflake) from your premise.
-- **Line-craft refine** — fiction-tuned tools on any selection: *show-don't-tell,
-  tighten, vary rhythm, add sensory, polish dialogue, rewrite, expand, proofread*.
+### ✍️ Writing & editing
+- **Rich-text editor** (TipTap/ProseMirror): bold, italic, underline, highlight, headings, lists, blockquotes
+- **Font controls**, text alignment (left/center/right/**justify**), and EB Garamond serif prose by default
+- **Suggestion-card editor** — AI edits arrive as accept/reject cards instead of overwriting your text
+- **Verse mode** for poetry (preserves line breaks and whitespace)
+- **POV identifiers** and **chapter/scene epigraphs** (opening quotes)
+- Local autosave to disk plus a manual **Save .md**
+
+### 📚 Manuscript structure
+- **Manuscript tree** — folders/parts → chapters → scenes/poems (plus short-story and verse project types)
+- **Drag-to-reorder** with inline **double-click rename**
+- **Front-matter quick-adds**: Title Page, Copyright, Dedication, Acknowledgements, Prologue
+- **Story bible** — characters, locations, items, lore — with **nested sub-categories**
+  (a country → provinces → cities; a character with sub-stats). Deletes cascade; the AI
+  pulls these into context so names and facts stay consistent
+- **Collapsible / hover / lockable sidebars** on both sides
+
+### 🤖 AI (provider-agnostic)
+- **Engine selector**: on-device WebLLM (WebGPU), Ollama, OpenAI, Anthropic, Google
+- **WebLLM** runs fully local in the browser — free, private, no server
+- **AI scene drafting** in your project's POV, tense, genre, and voice; **Continue** extends what's there
+- **Story structure** — beat-sheet outlines (Three-Act, Save the Cat, Hero's Journey, Snowflake)
+  from your premise, with a writer-fillable template (not just "generate")
+- **Line-craft refine** on any selection: *show-don't-tell, tighten, vary rhythm, add sensory,
+  polish dialogue, rewrite, expand, proofread*
+- **Story-bible retrieval** via embeddings keeps the AI consistent with your world
+- AI lives in a left-sidebar **Tools** dropdown with hover descriptions
+
+### 🖼 Media & capture
+- **Inline images** and **full-bleed images** (maps/chapter art that bleed edge-to-edge in book view)
+- **Custom scene-break glyphs** (presets + free text)
+- **Storyboard** (Excalidraw) you can **ingest** into chapters
+- **Handwriting → text** (vision model + opt-in Tesseract OCR)
+- **Dictation**: cloud Web Speech *or* private on-device Whisper
+
+### 📖 Book view & export
+- **Book view** at standard trim sizes (mass market, trade, A5, …) with live pagination and word/page counts
+- Export to **EPUB**, **PDF** (print), and **Markdown**
+- **Import** .docx / .pdf / .md / .txt → auto-split into chapters
+
+### 🚀 Platform
+- **Local-first** — everything lives in IndexedDB on your device; works offline
+- **Runs everywhere**: web/PWA (installable) + native **Tauri** desktop (Win/Mac/Linux) & mobile
+- **In-app auto-updater** — updates in place, never loses your work
+- **Open source**, MIT licensed
 
 ## Runs anywhere, no server
 
