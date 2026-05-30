@@ -80,7 +80,7 @@ export const projects = {
     const t = now();
     const p: ProjectRow = {
       id: id(), title, type, synopsis: "", pov: "", tense: "", genre: "", styleNotes: "",
-      storyboard: "", createdAt: t, updatedAt: t,
+      sceneBreak: "#", storyboard: "", createdAt: t, updatedAt: t,
     };
     await db.projects.add(p);
     if (scaffold) await instantiateScaffold(p.id, SCAFFOLDS[type] ?? [], null);

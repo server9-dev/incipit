@@ -20,7 +20,8 @@ type Item =
   | { kind: "chapter" | "part"; title: string; pov?: string; epigraph?: string }
   | { kind: "scene-break" }
   | { kind: "epigraph"; text: string }
-  | { kind: "block"; html: string };
+  | { kind: "block"; html: string }
+  | { kind: "fullbleed"; src: string };
 
 type TreeItem = StoryNode & { children: TreeItem[] };
 
@@ -40,12 +41,19 @@ function buildTree(nodes: StoryNode[]): TreeItem[] {
   return roots;
 }
 
-function contentBlocks(html: string): string[] {
+/** A content block, flagging full-bleed images so they become their own page. */
+function blockItems(html: string): Item[] {
   const doc = new DOMParser().parseFromString(html || "", "text/html");
   const els = Array.from(doc.body.children);
-  if (els.length) return els.map((e) => e.outerHTML);
-  const text = doc.body.textContent?.trim();
-  return text ? [`<p>${text}</p>`] : [];
+  if (!els.length) {
+    const text = doc.body.textContent?.trim();
+    return text ? [{ kind: "block", html: `<p>${text}</p>` }] : [];
+  }
+  return els.map((e): Item => {
+    const img = e.tagName.toLowerCase() === "img" ? (e as HTMLImageElement) : e.querySelector("img");
+    if (img && img.classList.contains("fullbleed")) return { kind: "fullbleed", src: img.getAttribute("src") || "" };
+    return { kind: "block", html: e.outerHTML };
+  });
 }
 
 function buildItems(nodes: StoryNode[]): Item[] {
@@ -56,16 +64,15 @@ function buildItems(nodes: StoryNode[]): Item[] {
       node.children.forEach(walk);
     } else if (node.type === "chapter") {
       items.push({ kind: "chapter", title: node.title, pov: node.pov, epigraph: node.epigraph });
-      const scenes = node.children;
-      scenes.forEach((s, i) => {
+      node.children.forEach((s, i) => {
         if (i > 0) items.push({ kind: "scene-break" });
         if (s.epigraph) items.push({ kind: "epigraph", text: s.epigraph });
-        contentBlocks(s.content).forEach((html) => items.push({ kind: "block", html }));
+        items.push(...blockItems(s.content));
       });
     } else {
       // standalone scene / poem (short story, poems): its own titled page
       items.push({ kind: "chapter", title: node.title, pov: node.pov, epigraph: node.epigraph });
-      contentBlocks(node.content).forEach((html) => items.push({ kind: "block", html }));
+      items.push(...blockItems(node.content));
     }
   };
   buildTree(nodes).forEach(walk);
@@ -74,9 +81,10 @@ function buildItems(nodes: StoryNode[]): Item[] {
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function itemHtml(item: Item, chapterTopPx: number): string {
+function itemHtml(item: Item, chapterTopPx: number, sceneBreak: string): string {
   if (item.kind === "block") return item.html;
-  if (item.kind === "scene-break") return `<div class="book-scene-break">#</div>`;
+  if (item.kind === "fullbleed") return ""; // rendered as its own page, not in the flow
+  if (item.kind === "scene-break") return `<div class="book-scene-break">${esc(sceneBreak)}</div>`;
   if (item.kind === "epigraph") return `<div class="book-epigraph">${esc(item.text)}</div>`;
   const cls = item.kind === "part" ? "book-part-title" : "book-chap-title";
   const pov = item.pov ? `<div class="book-pov">${esc(item.pov)}</div>` : "";
@@ -92,6 +100,7 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
   const measureRef = useRef<HTMLDivElement>(null);
 
   const items = useMemo(() => buildItems(nodes), [nodes]);
+  const sceneBreak = project.sceneBreak || "#";
   const trim = TRIMS[trimIdx]!;
 
   const contentW = (trim.w - 2 * MARGIN.side) * PPI;
@@ -117,20 +126,25 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
       h = 0;
     };
     for (const item of items) {
+      if (item.kind === "fullbleed") {
+        flush();
+        out.push([item]); // a full-bleed image is its own page
+        continue;
+      }
       if (item.kind === "chapter" || item.kind === "part") {
         flush();
         cur.push(item);
-        h = measure(itemHtml(item, chapterTopPx));
+        h = measure(itemHtml(item, chapterTopPx, sceneBreak));
         continue;
       }
-      const eh = measure(itemHtml(item, chapterTopPx));
+      const eh = measure(itemHtml(item, chapterTopPx, sceneBreak));
       if (h + eh > contentH && cur.length) flush();
       cur.push(item);
       h += eh;
     }
     flush();
     setPages(out);
-  }, [items, contentW, contentH, chapterTopPx]);
+  }, [items, contentW, contentH, chapterTopPx, sceneBreak]);
 
   const pageW = trim.w * PPI;
   const pageH = trim.h * PPI;
@@ -196,30 +210,40 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
       <div className="book-scroll flex-1 overflow-auto py-8">
         <div className="flex flex-col items-center gap-6">
           {pages.length === 0 && <div className="mt-20 text-sm text-mute">Nothing to preview yet — write some prose first.</div>}
-          {pages.map((page, i) => (
-            <div
-              key={i}
-              className="book-page bg-white shadow-lg"
-              style={{
-                width: pageW,
-                height: pageH,
-                paddingTop: MARGIN.top * PPI,
-                paddingBottom: MARGIN.bottom * PPI,
-                paddingLeft: MARGIN.side * PPI,
-                paddingRight: MARGIN.side * PPI,
-                transform: `scale(${zoom})`,
-                transformOrigin: "top center",
-                marginBottom: pageH * (zoom - 1), // collapse the gap left by scaling
-              }}
-            >
-              <div className="book-prose h-full overflow-hidden">
-                {page.map((item, j) => (
-                  <div key={j} dangerouslySetInnerHTML={{ __html: itemHtml(item, chapterTopPx) }} />
-                ))}
+          {pages.map((page, i) => {
+            const fb = page.length === 1 && page[0]!.kind === "fullbleed" ? (page[0] as Extract<Item, { kind: "fullbleed" }>) : null;
+            const m = fb ? 0 : undefined;
+            return (
+              <div
+                key={i}
+                className="book-page bg-white shadow-lg"
+                style={{
+                  width: pageW,
+                  height: pageH,
+                  paddingTop: m ?? MARGIN.top * PPI,
+                  paddingBottom: m ?? MARGIN.bottom * PPI,
+                  paddingLeft: m ?? MARGIN.side * PPI,
+                  paddingRight: m ?? MARGIN.side * PPI,
+                  transform: `scale(${zoom})`,
+                  transformOrigin: "top center",
+                  marginBottom: pageH * (zoom - 1),
+                }}
+              >
+                {fb ? (
+                  <img src={fb.src} alt="" className="book-fullbleed" />
+                ) : (
+                  <>
+                    <div className="book-prose h-full overflow-hidden">
+                      {page.map((item, j) => (
+                        <div key={j} dangerouslySetInnerHTML={{ __html: itemHtml(item, chapterTopPx, sceneBreak) }} />
+                      ))}
+                    </div>
+                    <div className="book-folio">{i + 1}</div>
+                  </>
+                )}
               </div>
-              <div className="book-folio">{i + 1}</div>
-            </div>
-          ))}
+            );
+          })}
         </div>
       </div>
 

@@ -119,6 +119,18 @@ body {
 .incipit-prose img.ProseMirror-selectednode {
   outline: 2px solid var(--color-brand);
 }
+.incipit-prose img.fullbleed {
+  width: 100%;
+  outline: 2px dashed var(--color-brand);
+  outline-offset: 2px;
+}
+/* full-bleed image filling a book page edge-to-edge */
+.book-fullbleed {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  display: block;
+}
 /* placeholder */
 .incipit-prose p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);

@@ -26,6 +26,8 @@ export const projectSchema = z.object({
   genre: z.string().default(""),
   /** freeform notes on voice/style to steer the model */
   styleNotes: z.string().default(""),
+  /** ornament shown between scenes in book view & export (e.g. # , * * * , ❧) */
+  sceneBreak: z.string().default("#"),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

@@ -28,6 +28,20 @@ const FONTS = [
 
 const HIGHLIGHTS = ["#fef08a", "#bbf7d0", "#fbcfe8", "#bfdbfe"];
 
+// Image node + a `fullBleed` flag (rendered as class="fullbleed") → full-page image in book view
+const ImageNode = Image.extend({
+  addAttributes() {
+    return {
+      ...this.parent?.(),
+      fullBleed: {
+        default: false,
+        parseHTML: (el: HTMLElement) => el.classList.contains("fullbleed"),
+        renderHTML: (attrs: { fullBleed?: boolean }) => (attrs.fullBleed ? { class: "fullbleed" } : {}),
+      },
+    };
+  },
+});
+
 /* ---- images (stored inline as base64 data URLs) ---- */
 function fileToDataUrl(file: File): Promise<string> {
   return new Promise((resolve, reject) => {
@@ -131,7 +145,7 @@ export function Editor({
       TextStyle,
       FontFamily,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
-      Image.configure({ allowBase64: true, inline: false }),
+      ImageNode.configure({ allowBase64: true, inline: false }),
       Placeholder.configure({
         placeholder: isVerse
           ? "Write your verse here, or hit Draft verse."
@@ -529,6 +543,14 @@ function FormatBar({
         ))}
       </select>
       <Btn on={false} label="🖼" title="Insert image (or paste / drop one) — chapter art, figures, maps" click={() => pickImage(editor)} />
+      {editor.isActive("image") && (
+        <Btn
+          on={!!editor.getAttributes("image").fullBleed}
+          label="⛶ Bleed"
+          title="Full-bleed: make this image its own full page (edge to edge) in book view & export — great for maps/plates"
+          click={() => editor.chain().focus().updateAttributes("image", { fullBleed: !editor.getAttributes("image").fullBleed }).run()}
+        />
+      )}
       <span className="mx-1 h-4 w-px bg-elevated" />
       <Btn on={false} label="↶" title="Undo (⌘Z)" click={() => editor.chain().focus().undo().run()} />
       <Btn on={false} label="↷" title="Redo (⌘⇧Z)" click={() => editor.chain().focus().redo().run()} />

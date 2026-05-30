@@ -1,24 +1,23 @@
 import { isTauri } from "./store/ai.js";
 
-/**
- * In the desktop app, check GitHub Releases for a newer signed build and offer
- * to install it in place. Your manuscript lives in local storage, so updating
- * never touches your work. No-op in the browser/PWA (which auto-updates anyway).
- */
-export async function checkForUpdate(): Promise<void> {
-  if (!isTauri()) return;
+export type UpdateInfo = { version: string; currentVersion: string; downloadAndInstall: () => Promise<unknown> };
+
+/** Returns an available desktop update, or null. No-op in the browser/PWA. */
+export async function getAvailableUpdate(): Promise<UpdateInfo | null> {
+  if (!isTauri()) return null;
   try {
     const { check } = await import("@tauri-apps/plugin-updater");
-    const update = await check();
-    if (!update?.available) return;
-    const ok = window.confirm(
-      `Incipit ${update.version} is available (you have ${update.currentVersion}).\n\nUpdate now? Your projects stay exactly where they are.`,
-    );
-    if (!ok) return;
-    await update.downloadAndInstall();
-    const { relaunch } = await import("@tauri-apps/plugin-process");
-    await relaunch();
+    const u = await check();
+    return u?.available ? (u as unknown as UpdateInfo) : null;
   } catch (e) {
     console.warn("Update check failed:", e);
+    return null;
   }
+}
+
+/** Install the update in place and relaunch. Local work is untouched. */
+export async function installUpdate(u: UpdateInfo): Promise<void> {
+  await u.downloadAndInstall();
+  const { relaunch } = await import("@tauri-apps/plugin-process");
+  await relaunch();
 }

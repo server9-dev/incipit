@@ -4,13 +4,15 @@ import { browserEngineEnabled, webgpuAvailable, getBrowserModelId } from "./brow
 import { ProjectList } from "./components/ProjectList.js";
 import { Workspace } from "./components/Workspace.js";
 import { SettingsModal } from "./components/SettingsModal.js";
-import { checkForUpdate } from "./updater.js";
+import { getAvailableUpdate, installUpdate, type UpdateInfo } from "./updater.js";
 
 export default function App() {
   const [projectId, setProjectId] = useState<string | null>(null);
   const [model, setModel] = useState("connecting…");
   const [connected, setConnected] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [update, setUpdate] = useState<UpdateInfo | null>(null);
+  const [updating, setUpdating] = useState(false);
 
   const refresh = useCallback(() => {
     // on-device browser model takes precedence and needs no server
@@ -32,7 +34,7 @@ export default function App() {
 
   useEffect(() => {
     refresh();
-    void checkForUpdate();
+    void getAvailableUpdate().then(setUpdate);
   }, [refresh]);
 
   return (
@@ -52,6 +54,35 @@ export default function App() {
           <span className="text-mute">⚙</span>
         </button>
       </header>
+
+      {update && (
+        <div className="flex items-center gap-3 border-b border-linesoft bg-surface2 px-5 py-2 text-sm">
+          <span className="text-fg">
+            <span className="brand-gradient font-semibold">Server9</span> has a new update for you :) — Incipit {update.version}.
+            <span className="text-mute"> Your work stays put.</span>
+          </span>
+          <div className="ml-auto flex gap-2">
+            <button
+              onClick={async () => {
+                setUpdating(true);
+                try {
+                  await installUpdate(update);
+                } catch (e) {
+                  alert("Update failed: " + e);
+                  setUpdating(false);
+                }
+              }}
+              disabled={updating}
+              className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink hover:bg-brand-dark disabled:opacity-50"
+            >
+              {updating ? "Updating…" : "Update & restart"}
+            </button>
+            <button onClick={() => setUpdate(null)} className="rounded-md border border-line px-3 py-1 text-xs font-medium text-mute hover:bg-elevated">
+              Later
+            </button>
+          </div>
+        </div>
+      )}
 
       <div className="min-h-0 flex-1">
         {projectId ? (

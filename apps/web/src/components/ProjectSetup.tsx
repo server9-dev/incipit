@@ -56,6 +56,26 @@ export function ProjectSetup({
               className="w-full resize-none rounded border border-linesoft bg-surface px-2 py-1 text-xs outline-none focus:border-brand"
             />
           </div>
+          <div>
+            <label className="block text-[10px] font-medium uppercase tracking-wide text-mute">Scene break</label>
+            <input
+              value={project.sceneBreak}
+              onChange={(e) => onChange({ sceneBreak: e.target.value })}
+              placeholder="#"
+              className="w-full rounded border border-linesoft bg-surface px-2 py-1 text-xs text-fg outline-none focus:border-brand"
+            />
+            <div className="mt-1 flex flex-wrap gap-1">
+              {["#", "* * *", "❧", "⁂", "◆ ◆ ◆", "～"].map((g) => (
+                <button
+                  key={g}
+                  onClick={() => onChange({ sceneBreak: g })}
+                  className="rounded border border-linesoft px-1.5 py-0.5 text-[11px] text-dim hover:bg-elevated"
+                >
+                  {g}
+                </button>
+              ))}
+            </div>
+          </div>
         </div>
       )}
     </div>
