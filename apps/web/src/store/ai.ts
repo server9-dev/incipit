@@ -107,9 +107,24 @@ export async function clientStream({ system, prompt }: { system: string; prompt:
   for await (const chunk of res.textStream) onChunk(chunk);
 }
 
+/** Decode a data: URL to raw bytes + media type (providers choke on data URLs). */
+function dataUrlToBytes(dataUrl: string): { bytes: Uint8Array; mediaType: string } {
+  const comma = dataUrl.indexOf(",");
+  const meta = dataUrl.slice(0, comma);
+  const b64 = dataUrl.slice(comma + 1);
+  const mediaType = /data:(.*?);base64/.exec(meta)?.[1] || "image/png";
+  const bin = atob(b64);
+  const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return { bytes, mediaType };
+}
+
 export async function clientVision(image: string): Promise<string> {
   const e = await effective();
   const model = textModel(e, e.visionModel, await platformFetch());
+  const { bytes, mediaType } = image.startsWith("data:")
+    ? dataUrlToBytes(image)
+    : { bytes: image as unknown as Uint8Array, mediaType: "image/png" };
   const { text } = await generateText({
     model,
     messages: [
@@ -117,7 +132,7 @@ export async function clientVision(image: string): Promise<string> {
         role: "user",
         content: [
           { type: "text", text: "Transcribe the handwriting in this image into plain text, exactly as written, preserving line breaks. Output only the transcription." },
-          { type: "image", image },
+          { type: "image", image: bytes, mimeType: mediaType },
         ],
       },
     ],

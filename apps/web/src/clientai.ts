@@ -41,6 +41,11 @@ export async function draftStream(
   } catch {
     /* embeddings unavailable — name-match only */
   }
+  // no semantic retrieval added anything (e.g. Anthropic has no embeddings) and the
+  // bible is small → include all entities so the AI still gets the cast/world context
+  if (byId.size === explicit.length && opts.entities.length <= 12) {
+    for (const e of opts.entities) byId.set(e.id, e);
+  }
   const prompt = buildDraftPrompt({
     project: opts.project,
     node: { ...opts.node, content: opts.plain },
