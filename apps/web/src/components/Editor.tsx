@@ -28,6 +28,31 @@ const FONTS = [
 
 const HIGHLIGHTS = ["#fef08a", "#bbf7d0", "#fbcfe8", "#bfdbfe"];
 
+/* ---- images (stored inline as base64 data URLs) ---- */
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const r = new FileReader();
+    r.onload = () => resolve(r.result as string);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+async function insertImageFile(editor: TiptapEditor, file: File) {
+  if (!file.type.startsWith("image/")) return;
+  const src = await fileToDataUrl(file);
+  editor.chain().focus().setImage({ src }).run();
+}
+function pickImage(editor: TiptapEditor) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.onchange = () => {
+    const f = input.files?.[0];
+    if (f) void insertImageFile(editor, f);
+  };
+  input.click();
+}
+
 type Paper = { label: string; bg: string; fg: string };
 const PAPERS: Record<string, Paper> = {
   white: { label: "White", bg: "#ffffff", fg: "#1a1a1a" },
@@ -129,6 +154,33 @@ export function Editor({
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [onForceSave]);
+
+  // paste / drop an image into the editor → inline base64
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom as HTMLElement;
+    const imgFrom = (list?: FileList | null) => [...(list ?? [])].find((f) => f.type.startsWith("image/"));
+    const onPaste = (e: ClipboardEvent) => {
+      const f = imgFrom(e.clipboardData?.files);
+      if (f) {
+        e.preventDefault();
+        void insertImageFile(editor, f);
+      }
+    };
+    const onDrop = (e: DragEvent) => {
+      const f = imgFrom(e.dataTransfer?.files);
+      if (f) {
+        e.preventDefault();
+        void insertImageFile(editor, f);
+      }
+    };
+    dom.addEventListener("paste", onPaste);
+    dom.addEventListener("drop", onDrop);
+    return () => {
+      dom.removeEventListener("paste", onPaste);
+      dom.removeEventListener("drop", onDrop);
+    };
+  }, [editor]);
 
   const insertSpoken = (text: string) => editor?.chain().focus().insertContent(text.replace(/\s+$/, "") + " ").run();
   const dictation = useDictation(insertSpoken);
@@ -476,6 +528,7 @@ function FormatBar({
           </option>
         ))}
       </select>
+      <Btn on={false} label="🖼" title="Insert image (or paste / drop one) — chapter art, figures, maps" click={() => pickImage(editor)} />
       <span className="mx-1 h-4 w-px bg-elevated" />
       <Btn on={false} label="↶" title="Undo (⌘Z)" click={() => editor.chain().focus().undo().run()} />
       <Btn on={false} label="↷" title="Redo (⌘⇧Z)" click={() => editor.chain().focus().redo().run()} />

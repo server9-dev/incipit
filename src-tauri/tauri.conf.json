@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Incipit",
-  "version": "0.1.5",
+  "version": "0.1.6",
   "identifier": "dev.server9.incipit",
   "build": {
     "frontendDist": "../apps/web/dist",
@@ -28,6 +28,7 @@
   "bundle": {
     "active": true,
     "targets": "all",
+    "createUpdaterArtifacts": true,
     "icon": [
       "icons/32x32.png",
       "icons/128x128.png",
@@ -37,6 +38,12 @@
     ],
     "android": {
       "debugApplicationIdSuffix": ".debug"
+    }
+  },
+  "plugins": {
+    "updater": {
+      "pubkey": "dW50cnVzdGVkIGNvbW1lbnQ6IG1pbmlzaWduIHB1YmxpYyBrZXk6IDJFRkY2QkY1RjRFOTM5QkMKUldTOE9lbjA5V3YvTGs5YWI4dHh2Rjl6VTJyNTJ0blJQbG9VT2IrNDB2aFp0WVRnVzBaL0tuZ1YK",
+      "endpoints": ["https://github.com/server9-dev/incipit/releases/latest/download/latest.json"]
     }
   }
 }

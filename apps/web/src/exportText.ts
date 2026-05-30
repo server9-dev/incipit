@@ -31,6 +31,7 @@ function inlineMd(node: Node): string {
       if (t === "u") return inner;
       if (t === "mark") return `==${inner}==`;
       if (t === "br") return "\n";
+      if (t === "img") return `![${(el as HTMLImageElement).alt || ""}](${el.getAttribute("src") || ""})`;
       return inner;
     })
     .join("");
@@ -48,6 +49,7 @@ export function htmlToMarkdown(html: string): string {
     if (t === "blockquote") return inlineMd(el).split("\n").map((l) => `> ${l}`).join("\n");
     if (t === "ul") return Array.from(el.children).map((li) => `- ${inlineMd(li)}`).join("\n");
     if (t === "ol") return Array.from(el.children).map((li, i) => `${i + 1}. ${inlineMd(li)}`).join("\n");
+    if (t === "img") return `![${(el as HTMLImageElement).alt || ""}](${el.getAttribute("src") || ""})`;
     return inlineMd(el);
   });
   // legacy plain-text nodes (no HTML tags)

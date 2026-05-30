@@ -109,6 +109,16 @@ body {
 .incipit-prose strong {
   font-weight: 700;
 }
+.incipit-prose img {
+  max-width: 100%;
+  height: auto;
+  display: block;
+  margin: 1em auto;
+  border-radius: 4px;
+}
+.incipit-prose img.ProseMirror-selectednode {
+  outline: 2px solid var(--color-brand);
+}
 /* placeholder */
 .incipit-prose p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
@@ -162,6 +172,14 @@ body {
 }
 .book-prose mark {
   background: transparent;
+}
+.book-prose img {
+  display: block;
+  margin: 0.8em auto;
+  max-width: 100%;
+  /* keep an image within a page so pagination stays sane */
+  max-height: 4.5in;
+  object-fit: contain;
 }
 .book-chap-title {
   text-align: center;

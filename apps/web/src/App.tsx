@@ -4,6 +4,7 @@ import { browserEngineEnabled, webgpuAvailable, getBrowserModelId } from "./brow
 import { ProjectList } from "./components/ProjectList.js";
 import { Workspace } from "./components/Workspace.js";
 import { SettingsModal } from "./components/SettingsModal.js";
+import { checkForUpdate } from "./updater.js";
 
 export default function App() {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -31,6 +32,7 @@ export default function App() {
 
   useEffect(() => {
     refresh();
+    void checkForUpdate();
   }, [refresh]);
 
   return (
