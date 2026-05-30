@@ -1,4 +1,5 @@
 import type { Project, StoryNode } from "@incipit/shared";
+import { savePlatform } from "./save.js";
 
 type TreeItem = StoryNode & { children: TreeItem[] };
 
@@ -83,15 +84,5 @@ export function manuscriptToMarkdown(project: Project, nodes: StoryNode[]): stri
 }
 
 export function downloadText(filename: string, text: string, mime = "text/markdown") {
-  const blob = new Blob([text], { type: `${mime};charset=utf-8` });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement("a");
-  a.href = url;
-  a.download = filename;
-  // must be in the DOM for the click to trigger a download in Edge/Firefox
-  a.style.display = "none";
-  document.body.appendChild(a);
-  a.click();
-  a.remove();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  void savePlatform(filename, text, mime);
 }
