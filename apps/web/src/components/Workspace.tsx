@@ -119,8 +119,8 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
   }
 
   /* ----- entities ----- */
-  async function createEntity(type: EntityType, name: string) {
-    const e = await api.createEntity({ projectId, type, name });
+  async function createEntity(type: EntityType, name: string, parentId: string | null = null) {
+    const e = await api.createEntity({ projectId, type, name, parentId });
     setEntities((prev) => [...prev, e]);
   }
   function patchEntity(id: string, patch: Partial<Entity>) {
@@ -130,8 +130,9 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
     timers.set(id, setTimeout(() => api.updateEntity(id, patch).catch(() => {}), 500));
   }
   async function removeEntity(id: string) {
-    await api.deleteEntity(id);
-    setEntities((prev) => prev.filter((e) => e.id !== id));
+    await api.deleteEntity(id); // cascades to descendants in the store
+    const { entities: fresh } = await api.fetchProjectFull(projectId);
+    setEntities(fresh);
   }
 
   async function insertOutline(title: string, content: string) {

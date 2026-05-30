@@ -84,7 +84,8 @@ export const moveNode = async (id: string, parentId: string | null, index: numbe
 });
 
 /* entities */
-export const createEntity = (input: { projectId: string; type: EntityType; name: string }) => entities.create(input);
+export const createEntity = (input: { projectId: string; type: EntityType; name: string; parentId?: string | null }) =>
+  entities.create(input);
 export const updateEntity = (id: string, patch: Partial<Pick<Entity, "name" | "summary" | "notes">>) =>
   entities.update(id, patch) as Promise<Entity>;
 export const deleteEntity = (id: string) => entities.remove(id);

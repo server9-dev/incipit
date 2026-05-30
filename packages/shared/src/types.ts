@@ -83,6 +83,8 @@ export const entitySchema = z.object({
   id: z.string(),
   projectId: z.string(),
   type: entityTypeSchema,
+  /** parent entity for nesting (e.g. a country → provinces → cities); null = top level */
+  parentId: z.string().nullable().default(null),
   name: z.string(),
   /** one-line summary the AI sees by default */
   summary: z.string().default(""),

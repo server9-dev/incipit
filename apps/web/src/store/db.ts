@@ -205,10 +205,10 @@ export const entities = {
     const r = await db.entities.get(eid);
     return r ? toEntity(r) : undefined;
   },
-  async create(input: { projectId: string; type: EntityType; name: string; summary?: string; notes?: string }): Promise<Entity> {
+  async create(input: { projectId: string; type: EntityType; name: string; parentId?: string | null; summary?: string; notes?: string }): Promise<Entity> {
     const t = now();
     const row: EntityRow = {
-      id: id(), projectId: input.projectId, type: input.type, name: input.name,
+      id: id(), projectId: input.projectId, type: input.type, parentId: input.parentId ?? null, name: input.name,
       summary: input.summary ?? "", notes: input.notes ?? "", embedding: null, createdAt: t, updatedAt: t,
     };
     await db.entities.add(row);
@@ -222,11 +222,29 @@ export const entities = {
     return toEntity(next);
   },
   async remove(eid: string) {
-    await db.entities.delete(eid);
+    // cascade: remove the entity and all of its descendants
+    const all = await db.entities.where("projectId").equals((await db.entities.get(eid))?.projectId ?? "").toArray();
+    const byParent = new Map<string | null, string[]>();
+    for (const r of all) {
+      const k = r.parentId ?? null;
+      (byParent.get(k) ?? byParent.set(k, []).get(k)!).push(r.id);
+    }
+    const doomed: string[] = [];
+    const collect = (x: string) => {
+      doomed.push(x);
+      (byParent.get(x) ?? []).forEach(collect);
+    };
+    collect(eid);
+    await db.entities.bulkDelete(doomed);
   },
   async embeddingRows(projectId: string): Promise<{ id: string; text: string; vec: number[] | null }[]> {
     const rows = await db.entities.where("projectId").equals(projectId).toArray();
-    return rows.map((r) => ({ id: r.id, text: `${r.name}. ${r.summary} ${r.notes}`.trim(), vec: r.embedding }));
+    const nameById = new Map(rows.map((r) => [r.id, r.name]));
+    return rows.map((r) => {
+      const parent = r.parentId ? nameById.get(r.parentId) : null;
+      const ctx = parent ? ` (part of ${parent})` : "";
+      return { id: r.id, text: `${r.name}${ctx}. ${r.summary} ${r.notes}`.trim(), vec: r.embedding };
+    });
   },
   async setEmbedding(eid: string, vec: number[]) {
     await db.entities.update(eid, { embedding: vec });
