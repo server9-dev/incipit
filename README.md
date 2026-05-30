@@ -21,6 +21,14 @@ Get the latest native app from the [**Releases**](https://github.com/server9-dev
 Or just **use it in the browser** — open the web build and "Install" it as a PWA on
 desktop or phone. No account, no server; everything runs locally.
 
+> **macOS first launch:** the build isn't notarized by Apple yet, so Gatekeeper
+> will block it the first time. Either **right-click the app → Open** (then confirm),
+> or clear the quarantine flag:
+> ```bash
+> xattr -dr com.apple.quarantine /Applications/Incipit.app
+> ```
+> Windows SmartScreen may also warn on first run — click **More info → Run anyway**.
+
 ## Features
 
 ### ✍️ Writing & editing
