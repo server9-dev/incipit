@@ -75,7 +75,7 @@ desktop or phone. No account, no server; everything runs locally.
 - **Local-first** — everything lives in IndexedDB on your device; works offline
 - **Runs everywhere**: web/PWA (installable) + native **Tauri** desktop (Win/Mac/Linux) & mobile
 - **In-app auto-updater** — updates in place, never loses your work
-- **Open source**, MIT licensed
+- **Open source**, MPL-2.0 licensed
 
 ## Runs anywhere, no server
 
@@ -159,4 +159,4 @@ surface so the UI is storage-agnostic.
 
 ## License
 
-MIT
+[Mozilla Public License 2.0](LICENSE) (MPL-2.0)

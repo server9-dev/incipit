@@ -10,12 +10,29 @@ export const BROWSER_MODELS = [
 ];
 export const DEFAULT_BROWSER_MODEL = BROWSER_MODELS[0]!.id;
 
-export const webgpuAvailable = () =>
-  typeof navigator !== "undefined" && "gpu" in navigator && !!(navigator as { gpu?: unknown }).gpu;
+const isTauriEnv = () => typeof window !== "undefined" && "__TAURI_INTERNALS__" in window;
+
+/**
+ * The Linux desktop build runs on WebKitGTK, which has no usable WebGPU — it
+ * may even expose a non-functional `navigator.gpu`. On-device WebLLM can never
+ * work there, so treat WebGPU as unavailable to avoid a confusing failure.
+ * (Windows uses WebView2 and macOS WKWebView, which do support it.)
+ */
+export const linuxDesktopNoWebGPU = () =>
+  isTauriEnv() &&
+  typeof navigator !== "undefined" &&
+  /Linux/i.test(navigator.userAgent) &&
+  !/Android/i.test(navigator.userAgent);
+
+export const webgpuAvailable = () => {
+  if (linuxDesktopNoWebGPU()) return false;
+  return typeof navigator !== "undefined" && "gpu" in navigator && !!(navigator as { gpu?: unknown }).gpu;
+};
 
 // Default to the on-device model on first run when WebGPU is available — zero
 // setup, fully private. Users can switch to Ollama/cloud in settings.
 export const browserEngineEnabled = () => {
+  if (linuxDesktopNoWebGPU()) return false; // never use WebLLM in the Linux webview
   const v = localStorage.getItem("incipit-engine");
   if (v === null) return webgpuAvailable();
   return v === "browser";

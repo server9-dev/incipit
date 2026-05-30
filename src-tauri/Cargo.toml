@@ -1,9 +1,9 @@
 [package]
 name = "app"
-version = "0.1.14"
+version = "0.1.15"
 description = "Incipit — local-first fiction writing studio"
 authors = ["server9"]
-license = "MIT"
+license = "MPL-2.0"
 repository = "https://github.com/server9-dev/incipit"
 edition = "2021"
 rust-version = "1.77.2"

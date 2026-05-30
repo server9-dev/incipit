@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react";
 import { getSettings, updateSettings, type AppSettings } from "../api.js";
-import { BROWSER_MODELS, DEFAULT_BROWSER_MODEL, browserEngineEnabled, getBrowserModelId, setBrowserEngine, webgpuAvailable } from "../browserModel.js";
+import { BROWSER_MODELS, DEFAULT_BROWSER_MODEL, browserEngineEnabled, getBrowserModelId, setBrowserEngine, webgpuAvailable, linuxDesktopNoWebGPU } from "../browserModel.js";
 
 const ENGINE_LABELS: Record<string, string> = {
   browser: "On-device (browser · WebGPU)",
@@ -75,6 +75,13 @@ export function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSav
         </div>
 
         <div className="space-y-3 p-5">
+          {linuxDesktopNoWebGPU() && (
+            <p className="rounded-md border border-line bg-elevated px-3 py-2 text-[11px] text-dim">
+              On-device (WebGPU) isn't available in the Linux desktop build — its WebKitGTK engine has no WebGPU support.
+              Use <span className="text-fg">Ollama</span> or a <span className="text-fg">cloud key</span> here, or run Incipit in
+              Chrome/Edge (the web app) for the on-device model.
+            </p>
+          )}
           <div>
             <label className="mb-1 block text-xs font-medium text-mute">Engine</label>
             <select value={engine} onChange={(e) => setEngine(e.target.value)} className={field}>
