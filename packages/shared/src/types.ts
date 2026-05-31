@@ -69,7 +69,7 @@ export type StoryNode = z.infer<typeof nodeSchema>;
  * Story bible (characters & world)
  * ------------------------------------------------------------------ */
 
-export const entityTypeSchema = z.enum(["character", "location", "item", "lore"]);
+export const entityTypeSchema = z.enum(["character", "location", "item", "lore", "term"]);
 export type EntityType = z.infer<typeof entityTypeSchema>;
 
 export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
@@ -77,6 +77,7 @@ export const ENTITY_TYPE_LABELS: Record<EntityType, string> = {
   location: "Locations",
   item: "Items",
   lore: "Lore",
+  term: "Glossary",
 };
 
 export const entitySchema = z.object({

@@ -1,7 +1,7 @@
 import { useMemo, useState } from "react";
 import { ENTITY_TYPE_LABELS, type Entity, type EntityType } from "@incipit/shared";
 
-const TYPE_ORDER: EntityType[] = ["character", "location", "item", "lore"];
+const TYPE_ORDER: EntityType[] = ["character", "location", "item", "lore", "term"];
 
 type Tree = Entity & { children: Tree[] };
 

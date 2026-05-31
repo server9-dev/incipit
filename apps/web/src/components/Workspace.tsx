@@ -123,6 +123,14 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
     const e = await api.createEntity({ projectId, type, name, parentId });
     setEntities((prev) => [...prev, e]);
   }
+  // "Add to dictionary" from the editor → a project glossary term (story bible)
+  async function addTerm(word: string, definition: string) {
+    if (entities.some((e) => e.type === "term" && e.name.toLowerCase() === word.toLowerCase())) return;
+    const e = await api.createEntity({ projectId, type: "term", name: word });
+    const withDef = definition ? { ...e, summary: definition } : e;
+    setEntities((prev) => [...prev, withDef]);
+    if (definition) api.updateEntity(e.id, { summary: definition }).catch(() => {});
+  }
   function patchEntity(id: string, patch: Partial<Entity>) {
     setEntities((prev) => prev.map((e) => (e.id === id ? { ...e, ...patch } : e)));
     const timers = entityTimers.current;
@@ -253,6 +261,7 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
               onForceSave={() => void flushNode(selected.id)}
               onToolState={setToolState}
               toolActionsRef={toolActionsRef}
+              onAddTerm={addTerm}
             />
           ) : selected ? (
             <FolderView

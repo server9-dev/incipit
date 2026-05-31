@@ -22,6 +22,7 @@ import {
   addCustomWord,
   spellcheckEnabled,
   setSpellcheckEnabled,
+  suggest,
 } from "../spellcheck.js";
 import { useRef } from "react";
 import type { ToolState, ToolActions } from "./ToolsMenu.js";
@@ -109,6 +110,7 @@ export function Editor({
   onForceSave,
   onToolState,
   toolActionsRef,
+  onAddTerm,
 }: {
   node: StoryNode;
   project: Project;
@@ -123,6 +125,7 @@ export function Editor({
   onForceSave: () => void;
   onToolState: (s: ToolState | null) => void;
   toolActionsRef: MutableRefObject<ToolActions | null>;
+  onAddTerm: (word: string, definition: string) => void;
 }) {
   const projectId = project.id;
   const isVerse = node.type === "poem";
@@ -139,7 +142,16 @@ export function Editor({
   }, [paperKey]);
   const [handwriting, setHandwriting] = useState(false);
   const [spellOn, setSpellOn] = useState(spellcheckEnabled());
-  const [spellMenu, setSpellMenu] = useState<{ x: number; y: number; word: string } | null>(null);
+  const [spellMenu, setSpellMenu] = useState<{
+    x: number;
+    y: number;
+    word: string;
+    from: number;
+    to: number;
+    suggestions: string[];
+    phase: "menu" | "define";
+    def: string;
+  } | null>(null);
 
   // story-bible names (and their word parts) count as "known" words so they
   // aren't flagged. Kept in a ref so the spellcheck plugin always reads current.
@@ -236,15 +248,38 @@ export function Editor({
   useEffect(() => {
     if (!editor) return;
     const dom = editor.view.dom as HTMLElement;
-    const onCtx = (e: MouseEvent) => {
-      const el = (e.target as HTMLElement)?.closest?.(".spell-error");
-      if (!el) return;
+    const open = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement)?.closest?.(".spell-error") as HTMLElement | null;
+      if (!el) return false;
       e.preventDefault();
-      setSpellMenu({ x: e.clientX, y: e.clientY, word: el.textContent || "" });
+      const word = el.textContent || "";
+      let from = 0;
+      try {
+        from = editor.view.posAtDOM(el, 0);
+      } catch {
+        return false;
+      }
+      setSpellMenu({
+        x: e.clientX,
+        y: e.clientY,
+        word,
+        from,
+        to: from + word.length,
+        suggestions: suggest(word),
+        phase: "menu",
+        def: "",
+      });
+      return true;
     };
+    const onCtx = (e: MouseEvent) => void open(e);
     dom.addEventListener("contextmenu", onCtx);
     return () => dom.removeEventListener("contextmenu", onCtx);
   }, [editor]);
+
+  // story-bible names changed → re-evaluate which words are flagged
+  useEffect(() => {
+    if (editor && spellOn) refreshSpellcheck(editor);
+  }, [editor, entities, spellOn]);
 
   // dismiss the spellcheck menu on any outside click
   useEffect(() => {
@@ -258,8 +293,18 @@ export function Editor({
     };
   }, [spellMenu]);
 
-  function addWordToDictionary(word: string) {
-    addCustomWord(word);
+  function replaceWord(from: number, to: number, text: string) {
+    editor?.chain().focus().insertContentAt({ from, to }, text).run();
+    setSpellMenu(null);
+  }
+  function ignoreWord(word: string) {
+    addCustomWord(word); // personal, global — known everywhere, no definition
+    setSpellMenu(null);
+    if (editor) refreshSpellcheck(editor);
+  }
+  function saveTerm(word: string, def: string) {
+    onAddTerm(word, def.trim()); // → project glossary (story bible)
+    addCustomWord(word); // also mark known immediately
     setSpellMenu(null);
     if (editor) refreshSpellcheck(editor);
   }
@@ -532,16 +577,65 @@ export function Editor({
           </div>
           {spellMenu && (
             <div
-              className="fixed z-50 overflow-hidden rounded-lg border border-line bg-surface text-xs shadow-2xl"
+              className="fixed z-50 w-56 overflow-hidden rounded-lg border border-line bg-surface text-xs shadow-2xl"
               style={{ left: spellMenu.x, top: spellMenu.y }}
               onClick={(e) => e.stopPropagation()}
+              onMouseUp={(e) => e.stopPropagation()}
             >
-              <button
-                onClick={() => addWordToDictionary(spellMenu.word)}
-                className="block w-full px-3 py-2 text-left text-fg hover:bg-elevated"
-              >
-                Add <span className="font-semibold">“{spellMenu.word}”</span> to dictionary
-              </button>
+              {spellMenu.phase === "menu" ? (
+                <>
+                  {spellMenu.suggestions.length > 0 ? (
+                    spellMenu.suggestions.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => replaceWord(spellMenu.from, spellMenu.to, s)}
+                        className="block w-full px-3 py-1.5 text-left text-fg hover:bg-elevated"
+                      >
+                        {s}
+                      </button>
+                    ))
+                  ) : (
+                    <div className="px-3 py-1.5 text-mute">No suggestions</div>
+                  )}
+                  <div className="border-t border-linesoft" />
+                  <button
+                    onClick={() => setSpellMenu({ ...spellMenu, phase: "define" })}
+                    className="block w-full px-3 py-2 text-left font-medium text-brand hover:bg-elevated"
+                  >
+                    ＋ Add to dictionary…
+                  </button>
+                  <button
+                    onClick={() => ignoreWord(spellMenu.word)}
+                    className="block w-full px-3 py-1.5 text-left text-mute hover:bg-elevated"
+                  >
+                    Ignore (no definition)
+                  </button>
+                </>
+              ) : (
+                <div className="space-y-2 p-3">
+                  <div className="text-mute">
+                    Define <span className="font-semibold text-fg">“{spellMenu.word}”</span> for this project
+                  </div>
+                  <textarea
+                    autoFocus
+                    value={spellMenu.def}
+                    onChange={(e) => setSpellMenu({ ...spellMenu, def: e.target.value })}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) saveTerm(spellMenu.word, spellMenu.def);
+                      if (e.key === "Escape") setSpellMenu(null);
+                    }}
+                    placeholder="What does it mean? (optional — the AI sees this too)"
+                    rows={3}
+                    className="w-full resize-y rounded border border-linesoft bg-surface px-2 py-1 text-xs text-fg outline-none focus:border-brand"
+                  />
+                  <button
+                    onClick={() => saveTerm(spellMenu.word, spellMenu.def)}
+                    className="w-full rounded bg-brand px-2 py-1.5 text-xs font-medium text-ink hover:bg-brand-dark"
+                  >
+                    Add to glossary
+                  </button>
+                </div>
+              )}
             </div>
           )}
         </>

@@ -40,6 +40,42 @@ export const setSpellcheckEnabled = (on: boolean) => localStorage.setItem(SPELL_
 
 const stripPossessive = (w: string) => w.toLowerCase().replace(/['’]s$/, "").replace(/’/g, "'");
 
+const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
+function edits1(word: string): Set<string> {
+  const out = new Set<string>();
+  for (let i = 0; i <= word.length; i++) {
+    const a = word.slice(0, i);
+    const b = word.slice(i);
+    if (b) out.add(a + b.slice(1)); // delete
+    if (b.length > 1) out.add(a + b[1] + b[0] + b.slice(2)); // transpose
+    for (const c of LETTERS) {
+      if (b) out.add(a + c + b.slice(1)); // replace
+      out.add(a + c + b); // insert
+    }
+  }
+  return out;
+}
+
+/** Suggest likely correct spellings for an unknown word (edit-distance 1, then 2). */
+export function suggest(word: string): string[] {
+  if (!wordSet) return [];
+  const w = word.toLowerCase();
+  const e1 = edits1(w);
+  const found = new Set<string>();
+  for (const e of e1) if (wordSet.has(e)) found.add(e);
+  if (found.size < 5) {
+    for (const a of e1) {
+      for (const b of edits1(a)) if (wordSet.has(b)) found.add(b);
+      if (found.size >= 12) break;
+    }
+  }
+  const cap = /^[A-Z]/.test(word);
+  return [...found]
+    .filter((s) => s !== w)
+    .slice(0, 6)
+    .map((s) => (cap ? s.charAt(0).toUpperCase() + s.slice(1) : s));
+}
+
 function buildDecorations(doc: PMNode, extra: Set<string>): DecorationSet {
   if (!wordSet || !spellcheckEnabled()) return DecorationSet.empty;
   const custom = getCustomWords();
