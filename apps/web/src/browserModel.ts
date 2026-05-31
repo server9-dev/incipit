@@ -49,13 +49,33 @@ let engine: MLCEngine | null = null;
 let loadedModel = ""; // only set AFTER a successful reload
 let loading: Promise<MLCEngine> | null = null;
 
+// Many GPUs/browsers (notably on Linux) expose WebGPU but NOT the optional
+// `shader-f16` feature, so the q4f16 models fail with "extension 'f16' is not
+// allowed". Detect it once and fall back to the q4f32 build of the same model.
+let f16Support: boolean | null = null;
+async function supportsF16(): Promise<boolean> {
+  if (f16Support !== null) return f16Support;
+  try {
+    const gpu = (navigator as { gpu?: { requestAdapter(): Promise<{ features: { has(f: string): boolean } } | null> } }).gpu;
+    const adapter = gpu ? await gpu.requestAdapter() : null;
+    f16Support = !!adapter?.features?.has("shader-f16");
+  } catch {
+    f16Support = false;
+  }
+  return f16Support;
+}
+async function resolveModelId(id: string): Promise<string> {
+  if (id.includes("q4f16") && !(await supportsF16())) return id.replace("q4f16", "q4f32");
+  return id;
+}
+
 /**
  * Lazily load WebLLM + the selected model (cached in the browser after first
  * download). Uses an explicit reload() so the model is guaranteed loaded before
  * we return, and resets cleanly on failure so a retry isn't stuck.
  */
 export async function ensureEngine(onProgress?: Progress): Promise<MLCEngine> {
-  const modelId = getBrowserModelId();
+  const modelId = await resolveModelId(getBrowserModelId());
   if (engine && loadedModel === modelId) return engine;
   if (loading) {
     await loading.catch(() => {});

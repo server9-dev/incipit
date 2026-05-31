@@ -15,6 +15,15 @@ import { initialHtml, textToHtml, textToInlineHtml } from "../richtext.js";
 import { LOCAL_REFINE } from "../localcraft.js";
 import { useDictation } from "../useDictation.js";
 import { useWhisperDictation } from "../whisperDictation.js";
+import {
+  spellcheckExtension,
+  loadDictionary,
+  refreshSpellcheck,
+  addCustomWord,
+  spellcheckEnabled,
+  setSpellcheckEnabled,
+} from "../spellcheck.js";
+import { useRef } from "react";
 import type { ToolState, ToolActions } from "./ToolsMenu.js";
 import type { MutableRefObject } from "react";
 
@@ -129,6 +138,18 @@ export function Editor({
     localStorage.setItem("incipit-paper", paperKey);
   }, [paperKey]);
   const [handwriting, setHandwriting] = useState(false);
+  const [spellOn, setSpellOn] = useState(spellcheckEnabled());
+  const [spellMenu, setSpellMenu] = useState<{ x: number; y: number; word: string } | null>(null);
+
+  // story-bible names (and their word parts) count as "known" words so they
+  // aren't flagged. Kept in a ref so the spellcheck plugin always reads current.
+  const extraWordsRef = useRef<Set<string>>(new Set());
+  extraWordsRef.current = useMemo(() => {
+    const s = new Set<string>();
+    for (const e of entities) for (const part of e.name.split(/\s+/)) if (part) s.add(part.toLowerCase());
+    return s;
+  }, [entities]);
+
   const initialInk = useMemo<Ink | null>(() => {
     try {
       return node.ink ? (JSON.parse(node.ink) as Ink) : null;
@@ -146,6 +167,7 @@ export function Editor({
       FontFamily,
       TextAlign.configure({ types: ["heading", "paragraph"] }),
       ImageNode.configure({ allowBase64: true, inline: false }),
+      spellcheckExtension(() => extraWordsRef.current),
       Placeholder.configure({
         placeholder: isVerse
           ? "Write your verse here, or hit Draft verse."
@@ -154,7 +176,9 @@ export function Editor({
     ],
     content: initialHtml(node.content, isVerse),
     onUpdate: ({ editor }) => onContentChange(editor.getHTML()),
-    editorProps: { attributes: { class: `incipit-prose font-garamond ${isVerse ? "verse" : ""}` } },
+    // spellcheck:"false" disables the browser's native checker — we run our own
+    // so character names etc. can be added to the dictionary.
+    editorProps: { attributes: { class: `incipit-prose font-garamond ${isVerse ? "verse" : ""}`, spellcheck: "false" } },
   });
 
   // Cmd/Ctrl+S → flush save
@@ -195,6 +219,57 @@ export function Editor({
       dom.removeEventListener("drop", onDrop);
     };
   }, [editor]);
+
+  // load the dictionary once (when spellcheck is on) and underline unknowns
+  useEffect(() => {
+    if (!editor || !spellOn) return;
+    let alive = true;
+    void loadDictionary().then(() => {
+      if (alive && editor && !editor.isDestroyed) refreshSpellcheck(editor);
+    });
+    return () => {
+      alive = false;
+    };
+  }, [editor, spellOn]);
+
+  // right-click a flagged word → "Add to dictionary"
+  useEffect(() => {
+    if (!editor) return;
+    const dom = editor.view.dom as HTMLElement;
+    const onCtx = (e: MouseEvent) => {
+      const el = (e.target as HTMLElement)?.closest?.(".spell-error");
+      if (!el) return;
+      e.preventDefault();
+      setSpellMenu({ x: e.clientX, y: e.clientY, word: el.textContent || "" });
+    };
+    dom.addEventListener("contextmenu", onCtx);
+    return () => dom.removeEventListener("contextmenu", onCtx);
+  }, [editor]);
+
+  // dismiss the spellcheck menu on any outside click
+  useEffect(() => {
+    if (!spellMenu) return;
+    const close = () => setSpellMenu(null);
+    window.addEventListener("click", close);
+    window.addEventListener("scroll", close, true);
+    return () => {
+      window.removeEventListener("click", close);
+      window.removeEventListener("scroll", close, true);
+    };
+  }, [spellMenu]);
+
+  function addWordToDictionary(word: string) {
+    addCustomWord(word);
+    setSpellMenu(null);
+    if (editor) refreshSpellcheck(editor);
+  }
+
+  function toggleSpellcheck() {
+    const next = !spellOn;
+    setSpellcheckEnabled(next);
+    setSpellOn(next);
+    if (editor) refreshSpellcheck(editor);
+  }
 
   const insertSpoken = (text: string) => editor?.chain().focus().insertContent(text.replace(/\s+$/, "") + " ").run();
   const dictation = useDictation(insertSpoken);
@@ -427,7 +502,16 @@ export function Editor({
         />
       ) : (
         <>
-          {editor && <FormatBar editor={editor} onSave={onForceSave} paperKey={paperKey} onPaper={setPaperKey} />}
+          {editor && (
+            <FormatBar
+              editor={editor}
+              onSave={onForceSave}
+              paperKey={paperKey}
+              onPaper={setPaperKey}
+              spellOn={spellOn}
+              onToggleSpell={toggleSpellcheck}
+            />
+          )}
           {dictation.active && (
             <div className="flex items-center gap-2 border-b border-linesoft bg-surface px-4 py-1.5 text-xs">
               <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
@@ -446,6 +530,20 @@ export function Editor({
           <div className="flex-1 overflow-y-auto" style={{ background: paper.bg, color: paper.fg }}>
             <EditorContent editor={editor} className="h-full" />
           </div>
+          {spellMenu && (
+            <div
+              className="fixed z-50 overflow-hidden rounded-lg border border-line bg-surface text-xs shadow-2xl"
+              style={{ left: spellMenu.x, top: spellMenu.y }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              <button
+                onClick={() => addWordToDictionary(spellMenu.word)}
+                className="block w-full px-3 py-2 text-left text-fg hover:bg-elevated"
+              >
+                Add <span className="font-semibold">“{spellMenu.word}”</span> to dictionary
+              </button>
+            </div>
+          )}
         </>
       )}
     </div>
@@ -457,11 +555,15 @@ function FormatBar({
   onSave,
   paperKey,
   onPaper,
+  spellOn,
+  onToggleSpell,
 }: {
   editor: TiptapEditor;
   onSave: () => void;
   paperKey: string;
   onPaper: (k: string) => void;
+  spellOn: boolean;
+  onToggleSpell: () => void;
 }) {
   const [, force] = useState(0);
   useEffect(() => {
@@ -554,6 +656,12 @@ function FormatBar({
       <span className="mx-1 h-4 w-px bg-elevated" />
       <Btn on={false} label="↶" title="Undo (⌘Z)" click={() => editor.chain().focus().undo().run()} />
       <Btn on={false} label="↷" title="Redo (⌘⇧Z)" click={() => editor.chain().focus().redo().run()} />
+      <Btn
+        on={spellOn}
+        label="ABC✓"
+        title="Spell check — underlines unknown words. Right-click a word to add it to your dictionary."
+        click={onToggleSpell}
+      />
       <select
         value={paperKey}
         onChange={(e) => onPaper(e.target.value)}
