@@ -236,7 +236,7 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
               <aside
                 onMouseEnter={() => setNavHover(true)}
                 onMouseLeave={() => setNavHover(false)}
-                className={`absolute inset-y-0 left-0 z-20 flex w-64 flex-col border-r border-line bg-surface shadow-2xl transition duration-200 ease-out ${
+                className={`absolute inset-y-0 left-0 z-20 flex w-64 flex-col border-r border-line bg-surface shadow-2xl transition duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   navHover ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-full opacity-0"
                 }`}
               >
@@ -305,7 +305,7 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
               <aside
                 onMouseEnter={() => setBibHover(true)}
                 onMouseLeave={() => setBibHover(false)}
-                className={`absolute inset-y-0 right-0 z-20 flex w-72 flex-col border-l border-line bg-surface shadow-2xl transition duration-200 ease-out ${
+                className={`absolute inset-y-0 right-0 z-20 flex w-72 flex-col border-l border-line bg-surface shadow-2xl transition duration-500 ease-[cubic-bezier(0.22,1,0.36,1)] ${
                   bibHover ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0"
                 }`}
               >
