@@ -232,14 +232,16 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
                 className="w-2 shrink-0 cursor-pointer"
                 style={{ background: "linear-gradient(180deg, #00D4FF, #9B59B6, #FF0080)" }}
               />
-              {navHover && (
-                <aside
-                  onMouseLeave={() => setNavHover(false)}
-                  className="absolute inset-y-0 left-0 z-20 flex w-64 flex-col border-r border-line bg-surface shadow-2xl"
-                >
-                  {inner}
-                </aside>
-              )}
+              {/* stays mounted and slides on hover so it eases in/out instead of snapping */}
+              <aside
+                onMouseEnter={() => setNavHover(true)}
+                onMouseLeave={() => setNavHover(false)}
+                className={`absolute inset-y-0 left-0 z-20 flex w-64 flex-col border-r border-line bg-surface shadow-2xl transition duration-200 ease-out ${
+                  navHover ? "translate-x-0 opacity-100" : "pointer-events-none -translate-x-full opacity-0"
+                }`}
+              >
+                {inner}
+              </aside>
             </>
           );
         })()}
@@ -299,14 +301,16 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
                 className="w-2 shrink-0 cursor-pointer"
                 style={{ background: "linear-gradient(180deg, #FF0080, #9B59B6, #00D4FF)" }}
               />
-              {bibHover && (
-                <aside
-                  onMouseLeave={() => setBibHover(false)}
-                  className="absolute inset-y-0 right-0 z-20 flex w-72 flex-col border-l border-line bg-surface shadow-2xl"
-                >
-                  {bible}
-                </aside>
-              )}
+              {/* stays mounted and slides on hover so it eases in/out instead of snapping */}
+              <aside
+                onMouseEnter={() => setBibHover(true)}
+                onMouseLeave={() => setBibHover(false)}
+                className={`absolute inset-y-0 right-0 z-20 flex w-72 flex-col border-l border-line bg-surface shadow-2xl transition duration-200 ease-out ${
+                  bibHover ? "translate-x-0 opacity-100" : "pointer-events-none translate-x-full opacity-0"
+                }`}
+              >
+                {bible}
+              </aside>
             </>
           );
         })()}
