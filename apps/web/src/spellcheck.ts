@@ -43,6 +43,26 @@ export const setSpellcheckEnabled = (on: boolean) => localStorage.setItem(SPELL_
 
 const stripPossessive = (w: string) => w.toLowerCase().replace(/['’]s$/, "").replace(/’/g, "'");
 
+// Contractions are a closed class, and the English word list has none of them,
+// so curate the common ones (straight apostrophe, lowercase — matching what
+// stripPossessive emits). 's contractions (it's, let's, he's…) already pass by
+// reducing to their base word, so they're not listed here.
+const CONTRACTIONS = new Set<string>([
+  "i'm",
+  "you're", "we're", "they're", "who're",
+  "i've", "you've", "we've", "they've", "who've",
+  "would've", "could've", "should've", "might've", "must've",
+  "i'll", "you'll", "he'll", "she'll", "it'll", "we'll", "they'll",
+  "that'll", "this'll", "there'll", "who'll", "what'll",
+  "i'd", "you'd", "he'd", "she'd", "it'd", "we'd", "they'd",
+  "that'd", "there'd", "who'd", "what'd", "how'd", "why'd", "where'd", "when'd",
+  "don't", "doesn't", "didn't", "isn't", "aren't", "wasn't", "weren't",
+  "haven't", "hasn't", "hadn't", "won't", "wouldn't", "can't", "couldn't",
+  "shouldn't", "mustn't", "needn't", "mightn't", "shan't", "oughtn't",
+  "daren't", "ain't",
+  "y'all", "o'clock", "ma'am", "ne'er", "e'er", "o'er", "tis", "twas",
+]);
+
 const LETTERS = "abcdefghijklmnopqrstuvwxyz".split("");
 function edits1(word: string): Set<string> {
   const out = new Set<string>();
@@ -93,7 +113,7 @@ function buildDecorations(doc: PMNode, extra: Set<string>): DecorationSet {
       if (word.length < 2) continue;
       if (word === word.toUpperCase()) continue; // skip acronyms (NASA, AI…)
       const lw = stripPossessive(word);
-      if (wordSet!.has(lw) || custom.has(lw) || extra.has(lw)) continue;
+      if (wordSet!.has(lw) || CONTRACTIONS.has(lw) || custom.has(lw) || extra.has(lw)) continue;
       const from = pos + m.index;
       decos.push(Decoration.inline(from, from + word.length, { class: "spell-error" }));
     }

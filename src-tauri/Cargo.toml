@@ -1,6 +1,6 @@
 [package]
 name = "app"
-version = "0.1.19"
+version = "0.1.20"
 description = "Incipit — local-first fiction writing studio"
 authors = ["server9"]
 license = "MPL-2.0"

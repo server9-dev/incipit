@@ -1,7 +1,7 @@
 {
   "$schema": "../node_modules/@tauri-apps/cli/config.schema.json",
   "productName": "Incipit",
-  "version": "0.1.19",
+  "version": "0.1.20",
   "identifier": "dev.server9.incipit",
   "build": {
     "frontendDist": "../apps/web/dist",
@@ -28,7 +28,7 @@
   },
   "bundle": {
     "active": true,
-    "targets": "all",
+    "targets": ["nsis", "app", "dmg", "appimage", "deb", "rpm"],
     "createUpdaterArtifacts": false,
     "icon": [
       "icons/32x32.png",
