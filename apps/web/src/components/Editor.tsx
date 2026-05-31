@@ -149,6 +149,7 @@ export function Editor({
     from: number;
     to: number;
     suggestions: string[];
+    flagged: boolean; // true = misspelled (offer corrections); false = a word the user deliberately selected
     phase: "menu" | "define";
     def: string;
   } | null>(null);
@@ -244,34 +245,36 @@ export function Editor({
     };
   }, [editor, spellOn]);
 
-  // right-click a flagged word → "Add to dictionary"
+  // right-click a flagged word — or any word you've selected — → dictionary menu.
+  // Working off the selection (not just the red underline) means words spelled
+  // like real English but used specially (names, coined terms) can be added too.
   useEffect(() => {
     if (!editor) return;
     const dom = editor.view.dom as HTMLElement;
     const open = (e: MouseEvent) => {
+      // 1) a flagged (misspelled) word under the cursor → offer corrections too
       const el = (e.target as HTMLElement)?.closest?.(".spell-error") as HTMLElement | null;
-      if (!el) return false;
-      e.preventDefault();
-      const word = el.textContent || "";
-      let from = 0;
-      try {
-        from = editor.view.posAtDOM(el, 0);
-      } catch {
-        return false;
+      if (el) {
+        const word = el.textContent || "";
+        let from: number;
+        try {
+          from = editor.view.posAtDOM(el, 0);
+        } catch {
+          return;
+        }
+        e.preventDefault();
+        setSpellMenu({ x: e.clientX, y: e.clientY, word, from, to: from + word.length, suggestions: suggest(word), flagged: true, phase: "menu", def: "" });
+        return;
       }
-      setSpellMenu({
-        x: e.clientX,
-        y: e.clientY,
-        word,
-        from,
-        to: from + word.length,
-        suggestions: suggest(word),
-        phase: "menu",
-        def: "",
-      });
-      return true;
+      // 2) otherwise, a non-empty text selection → add that word/phrase as-is
+      const { from, to, empty } = editor.view.state.selection;
+      if (empty) return; // no selection → let the native menu (copy/paste) show
+      const word = editor.state.doc.textBetween(from, to, " ").trim();
+      if (!word || /\s/.test(word) || word.length > 40) return; // keep it to a single word/term
+      e.preventDefault();
+      setSpellMenu({ x: e.clientX, y: e.clientY, word, from, to, suggestions: [], flagged: false, phase: "menu", def: "" });
     };
-    const onCtx = (e: MouseEvent) => void open(e);
+    const onCtx = (e: MouseEvent) => open(e);
     dom.addEventListener("contextmenu", onCtx);
     return () => dom.removeEventListener("contextmenu", onCtx);
   }, [editor]);
@@ -578,24 +581,30 @@ export function Editor({
           {spellMenu && (
             <div
               className="fixed z-50 w-56 overflow-hidden rounded-lg border border-line bg-surface text-xs shadow-2xl"
-              style={{ left: spellMenu.x, top: spellMenu.y }}
+              style={{ left: Math.min(spellMenu.x, window.innerWidth - 232), top: Math.min(spellMenu.y, window.innerHeight - 264) }}
               onClick={(e) => e.stopPropagation()}
               onMouseUp={(e) => e.stopPropagation()}
             >
               {spellMenu.phase === "menu" ? (
                 <>
-                  {spellMenu.suggestions.length > 0 ? (
-                    spellMenu.suggestions.map((s) => (
-                      <button
-                        key={s}
-                        onClick={() => replaceWord(spellMenu.from, spellMenu.to, s)}
-                        className="block w-full px-3 py-1.5 text-left text-fg hover:bg-elevated"
-                      >
-                        {s}
-                      </button>
-                    ))
+                  {spellMenu.flagged ? (
+                    spellMenu.suggestions.length > 0 ? (
+                      spellMenu.suggestions.map((s) => (
+                        <button
+                          key={s}
+                          onClick={() => replaceWord(spellMenu.from, spellMenu.to, s)}
+                          className="block w-full px-3 py-1.5 text-left text-fg hover:bg-elevated"
+                        >
+                          {s}
+                        </button>
+                      ))
+                    ) : (
+                      <div className="px-3 py-1.5 text-mute">No suggestions</div>
+                    )
                   ) : (
-                    <div className="px-3 py-1.5 text-mute">No suggestions</div>
+                    <div className="truncate px-3 py-1.5 text-mute">
+                      “<span className="font-semibold text-fg">{spellMenu.word}</span>”
+                    </div>
                   )}
                   <div className="border-t border-linesoft" />
                   <button
@@ -753,7 +762,7 @@ function FormatBar({
       <Btn
         on={spellOn}
         label="ABC✓"
-        title="Spell check — underlines unknown words. Right-click a word to add it to your dictionary."
+        title="Spell check — underlines unknown words. Right-click a flagged word, or select any word, to add it to your dictionary."
         click={onToggleSpell}
       />
       <select

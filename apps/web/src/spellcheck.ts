@@ -14,8 +14,11 @@ export async function loadDictionary(): Promise<Set<string>> {
   if (wordSet) return wordSet;
   if (loading) return loading;
   loading = (async () => {
-    const mod = (await import("an-array-of-english-words")) as { default: string[] };
-    wordSet = new Set(mod.default); // already lowercase
+    const mod = (await import("an-array-of-english-words")) as unknown;
+    // Depending on the bundler's CJS↔ESM interop, this resolves either to the
+    // array itself or to a namespace whose `default` is the array.
+    const words = (Array.isArray(mod) ? mod : (mod as { default?: string[] })?.default) ?? [];
+    wordSet = new Set(words); // already lowercase
     return wordSet;
   })();
   return loading;

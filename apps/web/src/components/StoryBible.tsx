@@ -21,6 +21,99 @@ function buildTrees(entities: Entity[]): Map<string | null, Tree[]> {
   return byParent;
 }
 
+type RowProps = {
+  e: Tree;
+  depth: number;
+  openId: string | null;
+  setOpenId: (id: string | null) => void;
+  childParent: string | null;
+  setChildParent: (id: string | null) => void;
+  childName: string;
+  setChildName: (s: string) => void;
+  onUpdate: (id: string, patch: Partial<Pick<Entity, "name" | "summary" | "notes">>) => void;
+  onDelete: (id: string) => void;
+  addChild: (parentId: string, type: EntityType) => void;
+};
+
+// Defined at module scope (not inside StoryBible) so its identity is stable
+// across renders — otherwise every keystroke would remount the row and steal
+// focus from the field being edited.
+function EntityRow(props: RowProps) {
+  const { e, depth, openId, setOpenId, childParent, setChildParent, childName, setChildName, onUpdate, onDelete, addChild } = props;
+  const open = openId === e.id;
+  return (
+    <div className="mb-1">
+      <div className="rounded-lg border border-linesoft bg-surface" style={{ marginLeft: depth * 10 }}>
+        <button
+          onClick={() => setOpenId(open ? null : e.id)}
+          className="flex w-full items-center justify-between px-2.5 py-1.5 text-left"
+        >
+          <span className="flex min-w-0 items-center gap-1">
+            {depth > 0 && <span className="text-mute">↳</span>}
+            <span className="truncate text-sm font-medium text-fg">{e.name}</span>
+            {e.children.length > 0 && <span className="text-[10px] text-mute">({e.children.length})</span>}
+          </span>
+          <span className="text-xs text-mute">{open ? "−" : "+"}</span>
+        </button>
+        {open && (
+          <div className="space-y-1.5 border-t border-linesoft p-2">
+            <input
+              value={e.name}
+              onChange={(ev) => onUpdate(e.id, { name: ev.target.value })}
+              className="w-full rounded border border-linesoft px-2 py-1 text-xs outline-none focus:border-brand"
+            />
+            <input
+              value={e.summary}
+              onChange={(ev) => onUpdate(e.id, { summary: ev.target.value })}
+              placeholder="One-line summary (AI sees this)"
+              className="w-full rounded border border-linesoft px-2 py-1 text-xs outline-none focus:border-brand"
+            />
+            <textarea
+              value={e.notes}
+              onChange={(ev) => onUpdate(e.id, { notes: ev.target.value })}
+              placeholder="Details, backstory, traits…"
+              rows={3}
+              className="w-full resize-y rounded border border-linesoft px-2 py-1 text-xs outline-none focus:border-brand"
+            />
+            <div className="flex items-center justify-between">
+              <button
+                onClick={() => {
+                  setChildParent(childParent === e.id ? null : e.id);
+                  setChildName("");
+                }}
+                className="text-[11px] text-brand hover:underline"
+              >
+                + sub-item
+              </button>
+              <button onClick={() => onDelete(e.id)} className="text-[11px] text-mute hover:text-red-500">
+                Delete
+              </button>
+            </div>
+          </div>
+        )}
+      </div>
+      {childParent === e.id && (
+        <input
+          autoFocus
+          value={childName}
+          onChange={(ev) => setChildName(ev.target.value)}
+          onKeyDown={(ev) => {
+            if (ev.key === "Enter") addChild(e.id, e.type);
+            if (ev.key === "Escape") setChildParent(null);
+          }}
+          onBlur={() => childName.trim() && addChild(e.id, e.type)}
+          placeholder={`Add ${ENTITY_TYPE_LABELS[e.type].replace(/s$/, "").toLowerCase()} inside “${e.name}”…`}
+          className="mb-1 w-full rounded border border-brand bg-surface px-2 py-1 text-xs outline-none"
+          style={{ marginLeft: (depth + 1) * 10 }}
+        />
+      )}
+      {e.children.map((c) => (
+        <EntityRow key={c.id} {...props} e={c} depth={depth + 1} />
+      ))}
+    </div>
+  );
+}
+
 export function StoryBible({
   entities,
   projectId,
@@ -58,80 +151,7 @@ export function StoryBible({
     setChildParent(null);
   }
 
-  function EntityRow({ e, depth }: { e: Tree; depth: number }) {
-    const open = openId === e.id;
-    return (
-      <div className="mb-1">
-        <div className="rounded-lg border border-linesoft bg-surface" style={{ marginLeft: depth * 10 }}>
-          <button
-            onClick={() => setOpenId(open ? null : e.id)}
-            className="flex w-full items-center justify-between px-2.5 py-1.5 text-left"
-          >
-            <span className="flex min-w-0 items-center gap-1">
-              {depth > 0 && <span className="text-mute">↳</span>}
-              <span className="truncate text-sm font-medium text-fg">{e.name}</span>
-              {e.children.length > 0 && <span className="text-[10px] text-mute">({e.children.length})</span>}
-            </span>
-            <span className="text-xs text-mute">{open ? "−" : "+"}</span>
-          </button>
-          {open && (
-            <div className="space-y-1.5 border-t border-linesoft p-2">
-              <input
-                value={e.name}
-                onChange={(ev) => onUpdate(e.id, { name: ev.target.value })}
-                className="w-full rounded border border-linesoft px-2 py-1 text-xs outline-none focus:border-brand"
-              />
-              <input
-                value={e.summary}
-                onChange={(ev) => onUpdate(e.id, { summary: ev.target.value })}
-                placeholder="One-line summary (AI sees this)"
-                className="w-full rounded border border-linesoft px-2 py-1 text-xs outline-none focus:border-brand"
-              />
-              <textarea
-                value={e.notes}
-                onChange={(ev) => onUpdate(e.id, { notes: ev.target.value })}
-                placeholder="Details, backstory, traits…"
-                rows={3}
-                className="w-full resize-y rounded border border-linesoft px-2 py-1 text-xs outline-none focus:border-brand"
-              />
-              <div className="flex items-center justify-between">
-                <button
-                  onClick={() => {
-                    setChildParent(childParent === e.id ? null : e.id);
-                    setChildName("");
-                  }}
-                  className="text-[11px] text-brand hover:underline"
-                >
-                  + sub-item
-                </button>
-                <button onClick={() => onDelete(e.id)} className="text-[11px] text-mute hover:text-red-500">
-                  Delete
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-        {childParent === e.id && (
-          <input
-            autoFocus
-            value={childName}
-            onChange={(ev) => setChildName(ev.target.value)}
-            onKeyDown={(ev) => {
-              if (ev.key === "Enter") addChild(e.id, e.type);
-              if (ev.key === "Escape") setChildParent(null);
-            }}
-            onBlur={() => childName.trim() && addChild(e.id, e.type)}
-            placeholder={`Add ${ENTITY_TYPE_LABELS[e.type].replace(/s$/, "").toLowerCase()} inside “${e.name}”…`}
-            className="mb-1 w-full rounded border border-brand bg-surface px-2 py-1 text-xs outline-none"
-            style={{ marginLeft: (depth + 1) * 10 }}
-          />
-        )}
-        {e.children.map((c) => (
-          <EntityRow key={c.id} e={c} depth={depth + 1} />
-        ))}
-      </div>
-    );
-  }
+  const rowProps = { openId, setOpenId, childParent, setChildParent, childName, setChildName, onUpdate, onDelete, addChild };
 
   return (
     <>
@@ -182,7 +202,7 @@ export function StoryBible({
                 {ENTITY_TYPE_LABELS[type]}
               </div>
               {items.map((e) => (
-                <EntityRow key={e.id} e={e} depth={0} />
+                <EntityRow key={e.id} e={e} depth={0} {...rowProps} />
               ))}
             </div>
           );
