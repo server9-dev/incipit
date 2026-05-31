@@ -42,6 +42,9 @@ export const spellcheckEnabled = () => localStorage.getItem(SPELL_KEY) !== "0";
 export const setSpellcheckEnabled = (on: boolean) => localStorage.setItem(SPELL_KEY, on ? "1" : "0");
 
 const stripPossessive = (w: string) => w.toLowerCase().replace(/['’]s$/, "").replace(/’/g, "'");
+// Fold diacritics so accented words match the (ASCII) English list: café→cafe,
+// protégé→protege, naïve→naive.
+const deaccent = (w: string) => w.normalize("NFD").replace(/[\u0300-\u036f]/g, "");
 
 // Contractions are a closed class, and the English word list has none of them,
 // so curate the common ones (straight apostrophe, lowercase — matching what
@@ -106,14 +109,29 @@ function buildDecorations(doc: PMNode, extra: Set<string>): DecorationSet {
   doc.descendants((node, pos) => {
     if (!node.isText || !node.text) return;
     const text = node.text;
-    const re = /[A-Za-z][A-Za-z'’]*/g;
+    // \p{L} so accented letters stay part of the word (protégé, café) instead of
+    // splitting into flaggable fragments.
+    const re = /\p{L}[\p{L}'’]*/gu;
     let m: RegExpExecArray | null;
     while ((m = re.exec(text))) {
       const word = m[0];
       if (word.length < 2) continue;
-      if (word === word.toUpperCase()) continue; // skip acronyms (NASA, AI…)
+      if (word === word.toUpperCase()) continue; // acronyms (NASA, AI…)
+      // Capitalized → treat as a proper noun (names, places, brands) and don't
+      // flag it. An English word list has none of these, and fiction is full of
+      // them; the cost is sentence-initial typos slipping through.
+      if (/^\p{Lu}/u.test(word)) continue;
       const lw = stripPossessive(word);
-      if (wordSet!.has(lw) || CONTRACTIONS.has(lw) || custom.has(lw) || extra.has(lw)) continue;
+      const base = deaccent(lw);
+      if (
+        wordSet!.has(lw) || wordSet!.has(base) ||
+        CONTRACTIONS.has(lw) ||
+        custom.has(lw) || custom.has(base) ||
+        extra.has(lw) || extra.has(base)
+      )
+        continue;
+      if (lw !== base) continue; // has diacritics but unknown → assume an intentional loanword (naïve, façade)
+      if (/[^\x00-\x7f]/.test(base)) continue; // non-Latin script — outside this dictionary's scope
       const from = pos + m.index;
       decos.push(Decoration.inline(from, from + word.length, { class: "spell-error" }));
     }
