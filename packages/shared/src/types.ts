@@ -28,6 +28,8 @@ export const projectSchema = z.object({
   styleNotes: z.string().default(""),
   /** ornament shown between scenes in book view & export (e.g. # , * * * , ❧) */
   sceneBreak: z.string().default("#"),
+  /** book formatting theme (JSON ProjectFormat): drop caps, chapter style, fonts… */
+  format: z.string().default(""),
   createdAt: z.string(),
   updatedAt: z.string(),
 });
@@ -93,6 +95,8 @@ export const entitySchema = z.object({
   summary: z.string().default(""),
   /** longer description / details */
   notes: z.string().default(""),
+  /** structured profile (JSON EntityProfile): template fields, relationships, portrait */
+  profile: z.string().default(""),
   createdAt: z.string(),
   updatedAt: z.string(),
 });

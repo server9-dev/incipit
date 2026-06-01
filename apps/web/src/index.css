@@ -248,6 +248,45 @@ body {
   text-indent: 0;
 }
 
+/* ---- Formatting themes (Atticus-style): heading font, chapter styles, drop caps ---- */
+.book-chap-title,
+.book-part-title,
+.book-chap-num {
+  font-family: var(--book-head, "EB Garamond", Georgia, serif);
+}
+.book-prose.chap-left .book-chap-title {
+  text-align: left;
+}
+.book-prose.chap-smallcaps .book-chap-title {
+  font-variant: small-caps;
+  letter-spacing: 0.08em;
+  font-weight: 500;
+}
+.book-chap-num {
+  text-align: center;
+  font-size: 2.6em;
+  font-weight: 300;
+  line-height: 1;
+  color: #9ca3af;
+  margin-bottom: 0.15em;
+}
+.book-prose.chap-numbered .book-chap-title {
+  font-size: 1.2em;
+  font-weight: 500;
+}
+/* drop cap on the chapter's opening paragraph */
+.book-prose.dropcap p.book-firstpara {
+  text-indent: 0;
+}
+.book-prose.dropcap p.book-firstpara::first-letter {
+  float: left;
+  font-size: 3.1em;
+  line-height: 0.72;
+  padding: 0.05em 0.08em 0 0;
+  font-weight: 600;
+  font-family: var(--book-head, "EB Garamond", Georgia, serif);
+}
+
 /* alignment fix: centered / right / justified text must not keep the
    first-line indent (it was shoving centered lines to the right) */
 .incipit-prose [style*="text-align: center"],

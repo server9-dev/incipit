@@ -334,7 +334,7 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
         />
       )}
 
-      {showBook && <BookView project={project} nodes={nodes} onClose={() => setShowBook(false)} />}
+      {showBook && <BookView project={project} nodes={nodes} onClose={() => setShowBook(false)} onChange={patchProject} />}
 
       {showCards && (
         <SceneCards

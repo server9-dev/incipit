@@ -1,5 +1,6 @@
-import { useLayoutEffect, useMemo, useRef, useState } from "react";
-import type { Project, StoryNode } from "@incipit/shared";
+import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import type { Project, StoryNode, ProjectFormat, BookFont, ChapterStyle } from "@incipit/shared";
+import { parseFormat, FORMAT_THEMES, BOOK_FONTS, ORNAMENTS } from "@incipit/shared";
 import { buildEpub, downloadBlob } from "../epub.js";
 
 /* Standard US trim sizes (inches). */
@@ -17,10 +18,10 @@ const MARGIN = { top: 0.75, bottom: 0.85, side: 0.7 }; // inches
 const CHAPTER_TOP = 1.1; // inches of space above a chapter title
 
 type Item =
-  | { kind: "chapter" | "part"; title: string; pov?: string; epigraph?: string }
+  | { kind: "chapter" | "part"; title: string; pov?: string; epigraph?: string; num?: number }
   | { kind: "scene-break" }
   | { kind: "epigraph"; text: string }
-  | { kind: "block"; html: string }
+  | { kind: "block"; html: string; first?: boolean }
   | { kind: "fullbleed"; src: string };
 
 type TreeItem = StoryNode & { children: TreeItem[] };
@@ -58,21 +59,36 @@ function blockItems(html: string): Item[] {
 
 function buildItems(nodes: StoryNode[]): Item[] {
   const items: Item[] = [];
+  let chapNum = 0;
+  // append blocks, tagging the first prose block after a chapter title (for drop caps)
+  const pushBody = (blocks: Item[], markFirst: boolean) => {
+    let marked = !markFirst;
+    for (const b of blocks) {
+      if (!marked && b.kind === "block") {
+        b.first = true;
+        marked = true;
+      }
+      items.push(b);
+    }
+  };
   const walk = (node: TreeItem) => {
     if (node.type === "folder") {
       items.push({ kind: "part", title: node.title });
       node.children.forEach(walk);
     } else if (node.type === "chapter") {
-      items.push({ kind: "chapter", title: node.title, pov: node.pov, epigraph: node.epigraph });
+      chapNum += 1;
+      items.push({ kind: "chapter", title: node.title, pov: node.pov, epigraph: node.epigraph, num: chapNum });
+      let first = true;
       node.children.forEach((s, i) => {
         if (i > 0) items.push({ kind: "scene-break" });
         if (s.epigraph) items.push({ kind: "epigraph", text: s.epigraph });
-        items.push(...blockItems(s.content));
+        pushBody(blockItems(s.content), first);
+        first = false;
       });
     } else {
       // standalone scene / poem (short story, poems): its own titled page
       items.push({ kind: "chapter", title: node.title, pov: node.pov, epigraph: node.epigraph });
-      items.push(...blockItems(node.content));
+      pushBody(blockItems(node.content), true);
     }
   };
   buildTree(nodes).forEach(walk);
@@ -81,27 +97,65 @@ function buildItems(nodes: StoryNode[]): Item[] {
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 
-function itemHtml(item: Item, chapterTopPx: number, sceneBreak: string): string {
-  if (item.kind === "block") return item.html;
+function itemHtml(item: Item, chapterTopPx: number, fmt: ProjectFormat): string {
+  if (item.kind === "block") {
+    // drop cap: tag the chapter's opening paragraph so CSS can enlarge its first letter
+    if (item.first && fmt.dropCap) return item.html.replace(/^<p(\s|>)/i, '<p class="book-firstpara"$1');
+    return item.html;
+  }
   if (item.kind === "fullbleed") return ""; // rendered as its own page, not in the flow
-  if (item.kind === "scene-break") return `<div class="book-scene-break">${esc(sceneBreak)}</div>`;
+  if (item.kind === "scene-break") return `<div class="book-scene-break">${esc(fmt.ornament)}</div>`;
   if (item.kind === "epigraph") return `<div class="book-epigraph">${esc(item.text)}</div>`;
   const cls = item.kind === "part" ? "book-part-title" : "book-chap-title";
+  const num =
+    item.kind === "chapter" && fmt.chapterStyle === "numbered" && item.num
+      ? `<div class="book-chap-num">${item.num}</div>`
+      : "";
   const pov = item.pov ? `<div class="book-pov">${esc(item.pov)}</div>` : "";
   const epi = item.epigraph ? `<div class="book-epigraph">${esc(item.epigraph)}</div>` : "";
-  return `<div style="padding-top:${chapterTopPx}px"><div class="${cls}">${esc(item.title)}</div>${pov}${epi}</div>`;
+  return `<div style="padding-top:${chapterTopPx}px">${num}<div class="${cls}">${esc(item.title)}</div>${pov}${epi}</div>`;
 }
 
-export function BookView({ project, nodes, onClose }: { project: Project; nodes: StoryNode[]; onClose: () => void }) {
+export function BookView({
+  project,
+  nodes,
+  onClose,
+  onChange,
+}: {
+  project: Project;
+  nodes: StoryNode[];
+  onClose: () => void;
+  onChange?: (patch: Partial<Project>) => void;
+}) {
   const [trimIdx, setTrimIdx] = useState(3); // US Trade
   const [zoom, setZoom] = useState(0.85);
   const [pages, setPages] = useState<Item[][]>([]);
   const [exporting, setExporting] = useState(false);
+  const [fmtOpen, setFmtOpen] = useState(false);
   const measureRef = useRef<HTMLDivElement>(null);
 
   const items = useMemo(() => buildItems(nodes), [nodes]);
-  const sceneBreak = project.sceneBreak || "#";
   const trim = TRIMS[trimIdx]!;
+
+  // current theme; seed the ornament from a legacy sceneBreak if the project predates themes
+  const format = useMemo<ProjectFormat>(() => {
+    const f = parseFormat(project.format);
+    if (!project.format && project.sceneBreak) f.ornament = project.sceneBreak;
+    return f;
+  }, [project.format, project.sceneBreak]);
+
+  const setFormat = (next: ProjectFormat) => onChange?.({ format: JSON.stringify(next) });
+  const applyTheme = (key: string) => {
+    const t = FORMAT_THEMES.find((x) => x.key === key);
+    if (t) setFormat({ theme: t.key, ...t.format });
+  };
+  const setField = <K extends keyof ProjectFormat>(k: K, v: ProjectFormat[K]) =>
+    setFormat({ ...format, [k]: v, theme: "custom" });
+
+  const bodyStack = BOOK_FONTS[format.bodyFont].stack;
+  const headStack = BOOK_FONTS[format.headingFont].stack;
+  const proseClass = `book-prose chap-${format.chapterStyle}${format.dropCap ? " dropcap" : ""}`;
+  const proseStyle = { fontFamily: bodyStack, "--book-head": headStack } as CSSProperties;
 
   const contentW = (trim.w - 2 * MARGIN.side) * PPI;
   const contentH = (trim.h - MARGIN.top - MARGIN.bottom) * PPI;
@@ -134,17 +188,17 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
       if (item.kind === "chapter" || item.kind === "part") {
         flush();
         cur.push(item);
-        h = measure(itemHtml(item, chapterTopPx, sceneBreak));
+        h = measure(itemHtml(item, chapterTopPx, format));
         continue;
       }
-      const eh = measure(itemHtml(item, chapterTopPx, sceneBreak));
+      const eh = measure(itemHtml(item, chapterTopPx, format));
       if (h + eh > contentH && cur.length) flush();
       cur.push(item);
       h += eh;
     }
     flush();
     setPages(out);
-  }, [items, contentW, contentH, chapterTopPx, sceneBreak]);
+  }, [items, contentW, contentH, chapterTopPx, format]);
 
   const pageW = trim.w * PPI;
   const pageH = trim.h * PPI;
@@ -175,6 +229,8 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
     }
   }
 
+  const themeKey = FORMAT_THEMES.some((t) => t.key === format.theme) ? format.theme : "custom";
+
   return (
     <div className="book-view-root fixed inset-0 z-50 flex flex-col bg-void">
       <div className="book-toolbar flex items-center gap-3 border-b border-linesoft bg-surface px-4 py-2">
@@ -189,6 +245,101 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
             <option key={t.label} value={i}>{t.label}</option>
           ))}
         </select>
+
+        {onChange && (
+          <div className="relative">
+            <select
+              value={themeKey}
+              onChange={(e) => (e.target.value === "custom" ? setFmtOpen(true) : applyTheme(e.target.value))}
+              className="rounded border border-line bg-surface px-2 py-1 text-xs text-fg outline-none"
+              title="Formatting theme"
+            >
+              {FORMAT_THEMES.map((t) => (
+                <option key={t.key} value={t.key}>
+                  {t.label}
+                </option>
+              ))}
+              <option value="custom">Custom…</option>
+            </select>
+            <button
+              onClick={() => setFmtOpen((o) => !o)}
+              className="ml-1 rounded border border-line px-2 py-1 text-xs text-dim hover:bg-elevated"
+              title="Fine-tune formatting"
+            >
+              Aa ▾
+            </button>
+            {fmtOpen && (
+              <div className="absolute left-0 z-40 mt-1 w-60 space-y-2 rounded-lg border border-line bg-surface p-3 text-xs shadow-2xl">
+                <label className="flex items-center justify-between gap-2">
+                  <span className="text-dim">Drop caps</span>
+                  <input type="checkbox" checked={format.dropCap} onChange={(e) => setField("dropCap", e.target.checked)} />
+                </label>
+                <label className="flex items-center justify-between gap-2">
+                  <span className="text-dim">Chapter heading</span>
+                  <select
+                    value={format.chapterStyle}
+                    onChange={(e) => setField("chapterStyle", e.target.value as ChapterStyle)}
+                    className="rounded border border-line bg-surface px-1 py-0.5 text-fg outline-none"
+                  >
+                    <option value="centered">Centered</option>
+                    <option value="left">Left</option>
+                    <option value="numbered">Numbered</option>
+                    <option value="smallcaps">Small caps</option>
+                  </select>
+                </label>
+                <label className="flex items-center justify-between gap-2">
+                  <span className="text-dim">Scene break</span>
+                  <select
+                    value={format.ornament}
+                    onChange={(e) => setField("ornament", e.target.value)}
+                    className="rounded border border-line bg-surface px-1 py-0.5 text-fg outline-none"
+                  >
+                    {ORNAMENTS.map((o) => (
+                      <option key={o} value={o}>
+                        {o}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center justify-between gap-2">
+                  <span className="text-dim">Body font</span>
+                  <select
+                    value={format.bodyFont}
+                    onChange={(e) => setField("bodyFont", e.target.value as BookFont)}
+                    className="rounded border border-line bg-surface px-1 py-0.5 text-fg outline-none"
+                  >
+                    {(Object.keys(BOOK_FONTS) as BookFont[]).map((f) => (
+                      <option key={f} value={f}>
+                        {BOOK_FONTS[f].label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center justify-between gap-2">
+                  <span className="text-dim">Heading font</span>
+                  <select
+                    value={format.headingFont}
+                    onChange={(e) => setField("headingFont", e.target.value as BookFont)}
+                    className="rounded border border-line bg-surface px-1 py-0.5 text-fg outline-none"
+                  >
+                    {(Object.keys(BOOK_FONTS) as BookFont[]).map((f) => (
+                      <option key={f} value={f}>
+                        {BOOK_FONTS[f].label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <button
+                  onClick={() => setFmtOpen(false)}
+                  className="w-full rounded border border-line py-1 text-dim hover:bg-elevated"
+                >
+                  Done
+                </button>
+              </div>
+            )}
+          </div>
+        )}
+
         <div className="flex items-center gap-1 text-xs">
           <button onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.1).toFixed(2)))} className="rounded border border-line px-2 py-1 text-dim hover:bg-elevated">−</button>
           <span className="w-10 text-center text-dim">{Math.round(zoom * 100)}%</span>
@@ -233,9 +384,9 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
                   <img src={fb.src} alt="" className="book-fullbleed" />
                 ) : (
                   <>
-                    <div className="book-prose h-full overflow-hidden">
+                    <div className={`${proseClass} h-full overflow-hidden`} style={proseStyle}>
                       {page.map((item, j) => (
-                        <div key={j} dangerouslySetInnerHTML={{ __html: itemHtml(item, chapterTopPx, sceneBreak) }} />
+                        <div key={j} dangerouslySetInnerHTML={{ __html: itemHtml(item, chapterTopPx, format) }} />
                       ))}
                     </div>
                     <div className="book-folio">{i + 1}</div>
@@ -247,8 +398,12 @@ export function BookView({ project, nodes, onClose }: { project: Project; nodes:
         </div>
       </div>
 
-      {/* offscreen measurer */}
-      <div ref={measureRef} className="book-prose book-measure" style={{ position: "absolute", left: -99999, top: 0, visibility: "hidden" }} />
+      {/* offscreen measurer — mirrors the page's font/theme so pagination matches */}
+      <div
+        ref={measureRef}
+        className={`${proseClass} book-measure`}
+        style={{ ...proseStyle, position: "absolute", left: -99999, top: 0, visibility: "hidden" }}
+      />
     </div>
   );
 }

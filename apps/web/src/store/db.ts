@@ -2,6 +2,7 @@ import Dexie, { type Table } from "dexie";
 import {
   SCAFFOLDS,
   canContain,
+  parseProfile,
   type Project,
   type ProjectType,
   type StoryNode,
@@ -80,7 +81,7 @@ export const projects = {
     const t = now();
     const p: ProjectRow = {
       id: id(), title, type, synopsis: "", pov: "", tense: "", genre: "", styleNotes: "",
-      sceneBreak: "#", storyboard: "", createdAt: t, updatedAt: t,
+      sceneBreak: "#", format: "", storyboard: "", createdAt: t, updatedAt: t,
     };
     await db.projects.add(p);
     if (scaffold) await instantiateScaffold(p.id, SCAFFOLDS[type] ?? [], null);
@@ -209,12 +210,12 @@ export const entities = {
     const t = now();
     const row: EntityRow = {
       id: id(), projectId: input.projectId, type: input.type, parentId: input.parentId ?? null, name: input.name,
-      summary: input.summary ?? "", notes: input.notes ?? "", embedding: null, createdAt: t, updatedAt: t,
+      summary: input.summary ?? "", notes: input.notes ?? "", profile: "", embedding: null, createdAt: t, updatedAt: t,
     };
     await db.entities.add(row);
     return toEntity(row);
   },
-  async update(eid: string, patch: Partial<Pick<Entity, "name" | "summary" | "notes">>): Promise<Entity | undefined> {
+  async update(eid: string, patch: Partial<Pick<Entity, "name" | "summary" | "notes" | "profile">>): Promise<Entity | undefined> {
     const cur = await db.entities.get(eid);
     if (!cur) return undefined;
     const next: EntityRow = { ...cur, ...patch, embedding: null, updatedAt: now() }; // clear cached vector
@@ -243,7 +244,12 @@ export const entities = {
     return rows.map((r) => {
       const parent = r.parentId ? nameById.get(r.parentId) : null;
       const ctx = parent ? ` (part of ${parent})` : "";
-      return { id: r.id, text: `${r.name}${ctx}. ${r.summary} ${r.notes}`.trim(), vec: r.embedding };
+      // fold the structured profile fields into the text the AI retrieves on
+      const fields = Object.entries(parseProfile(r.profile).fields)
+        .filter(([, v]) => v)
+        .map(([k, v]) => `${k}: ${v}`)
+        .join(". ");
+      return { id: r.id, text: `${r.name}${ctx}. ${r.summary} ${r.notes} ${fields}`.trim(), vec: r.embedding };
     });
   },
   async setEmbedding(eid: string, vec: number[]) {

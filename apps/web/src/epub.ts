@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import type { Project, StoryNode } from "@incipit/shared";
+import { parseFormat, BOOK_FONTS, type Project, type StoryNode, type ProjectFormat } from "@incipit/shared";
 import { savePlatform } from "./save.js";
 
 type TreeItem = StoryNode & { children: TreeItem[] };
@@ -39,43 +39,67 @@ function pageXhtml(title: string, body: string): string {
 </html>`;
 }
 
+/** Tag the first paragraph of a chapter body so the drop-cap rule can target it. */
+function markFirstP(html: string): string {
+  return html.replace(/<p(\s|>)/i, '<p class="first"$1');
+}
+
 /** Flatten the manuscript into spine documents (one per chapter / part / standalone). */
-function buildDocs(nodes: StoryNode[]): Doc[] {
+function buildDocs(nodes: StoryNode[], fmt: ProjectFormat): Doc[] {
   const docs: Doc[] = [];
   let n = 0;
+  let chap = 0;
   const add = (title: string, body: string, kind: string) => {
     n += 1;
     docs.push({ id: `${kind}${n}`, file: `${kind}${n}.xhtml`, title, xhtml: pageXhtml(title, body) });
   };
+  const drop = (html: string) => (fmt.dropCap ? markFirstP(html) : html);
   const walk = (node: TreeItem) => {
     if (node.type === "folder") {
       add(node.title, `<h1 class="part">${esc(node.title)}</h1>`, "part");
       node.children.forEach(walk);
     } else if (node.type === "chapter") {
+      chap += 1;
+      const num = fmt.chapterStyle === "numbered" ? `<p class="chapnum">${chap}</p>` : "";
       const scenes = node.children
         .map((s, i) => (i > 0 ? `<hr class="scene"/>` : "") + toXhtml(s.content))
         .join("\n");
-      add(node.title, `<h1>${esc(node.title)}</h1>\n${scenes}`, "chap");
+      add(node.title, `${num}<h1>${esc(node.title)}</h1>\n${drop(scenes)}`, "chap");
     } else {
-      add(node.title, `<h1>${esc(node.title)}</h1>\n${toXhtml(node.content)}`, "chap");
+      add(node.title, `<h1>${esc(node.title)}</h1>\n${drop(toXhtml(node.content))}`, "chap");
     }
   };
   buildTree(nodes).forEach(walk);
   return docs;
 }
 
-const STYLE = `body { font-family: Georgia, "Times New Roman", serif; line-height: 1.4; margin: 1em; }
-h1 { text-align: center; margin: 2em 0 1.2em; font-size: 1.5em; }
+function styleFor(fmt: ProjectFormat): string {
+  const body = BOOK_FONTS[fmt.bodyFont].stack;
+  const head = BOOK_FONTS[fmt.headingFont].stack;
+  const align = fmt.chapterStyle === "left" ? "left" : "center";
+  const smallcaps = fmt.chapterStyle === "smallcaps" ? "font-variant: small-caps; letter-spacing: 0.06em;" : "";
+  const ornament = fmt.ornament.replace(/\\/g, "\\\\").replace(/"/g, '\\"');
+  const dropcap = fmt.dropCap
+    ? `p.first { text-indent: 0; }
+p.first::first-letter { float: left; font-size: 3em; line-height: 0.72; padding: 0.05em 0.08em 0 0; font-weight: 600; font-family: ${head}; }`
+    : "";
+  return `body { font-family: ${body}; line-height: 1.4; margin: 1em; }
+h1 { font-family: ${head}; text-align: ${align}; margin: 2em 0 1.2em; font-size: 1.5em; ${smallcaps} }
 h1.part { font-size: 1.9em; }
+.chapnum { font-family: ${head}; text-align: center; font-size: 2.4em; font-weight: 300; color: #9aa3ad; line-height: 1; margin: 1.5em 0 0; }
 p { margin: 0; text-indent: 1.4em; text-align: justify; }
 h1 + p, p:first-child { text-indent: 0; }
 hr.scene { border: 0; text-align: center; margin: 1.2em 0; }
-hr.scene:after { content: "#"; color: #666; }
+hr.scene:after { content: "${ornament}"; color: #666; }
 blockquote { margin: 0.5em 1.2em; font-style: italic; }
-mark { background: none; }`;
+mark { background: none; }
+${dropcap}`;
+}
 
 export async function buildEpub(project: Project, nodes: StoryNode[]): Promise<Blob> {
-  const docs = buildDocs(nodes);
+  const fmt = parseFormat(project.format);
+  if (!project.format && project.sceneBreak) fmt.ornament = project.sceneBreak; // honour legacy scene breaks
+  const docs = buildDocs(nodes, fmt);
   const uid = `urn:uuid:${crypto.randomUUID()}`;
   const modified = new Date().toISOString().replace(/\.\d+Z$/, "Z");
   const zip = new JSZip();
@@ -92,7 +116,7 @@ export async function buildEpub(project: Project, nodes: StoryNode[]): Promise<B
   );
 
   const oebps = zip.folder("OEBPS")!;
-  oebps.file("style.css", STYLE);
+  oebps.file("style.css", styleFor(fmt));
   docs.forEach((d) => oebps.file(d.file, d.xhtml));
 
   const manifestItems = docs
