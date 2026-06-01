@@ -61,7 +61,7 @@ async function instantiateScaffold(projectId: string, specs: ScaffoldNode[], par
     const nid = id();
     await db.nodes.add({
       id: nid, projectId, parentId, type: spec.type, title: spec.title, synopsis: spec.synopsis ?? "",
-      content: "", pov: "", epigraph: "", ink: "", order: order++, wordCount: 0, originId: "", createdAt: t, updatedAt: t,
+      content: "", pov: "", epigraph: "", ink: "", card: "", order: order++, wordCount: 0, originId: "", createdAt: t, updatedAt: t,
     });
     if (spec.children?.length) await instantiateScaffold(projectId, spec.children, nid);
   }
@@ -128,12 +128,12 @@ export const nodes = {
     const t = now();
     const row: NodeRow = {
       id: id(), projectId: input.projectId, parentId: input.parentId, type: input.type, title: input.title,
-      synopsis: "", content: "", pov: "", epigraph: "", ink: "", order, wordCount: 0, originId: input.originId ?? "", createdAt: t, updatedAt: t,
+      synopsis: "", content: "", pov: "", epigraph: "", ink: "", card: "", order, wordCount: 0, originId: input.originId ?? "", createdAt: t, updatedAt: t,
     };
     await db.nodes.add(row);
     return toNode(row);
   },
-  async update(nid: string, patch: Partial<Pick<StoryNode, "title" | "synopsis" | "content" | "pov" | "epigraph" | "ink" | "order" | "parentId">>): Promise<StoryNode | undefined> {
+  async update(nid: string, patch: Partial<Pick<StoryNode, "title" | "synopsis" | "content" | "pov" | "epigraph" | "ink" | "card" | "order" | "parentId">>): Promise<StoryNode | undefined> {
     const cur = await db.nodes.get(nid);
     if (!cur) return undefined;
     const content = patch.content ?? cur.content;

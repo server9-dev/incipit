@@ -57,6 +57,8 @@ export const nodeSchema = z.object({
   epigraph: z.string().default(""),
   /** preserved handwriting: JSON {w,h,strokes:[[{x,y}]]} of the original ink */
   ink: z.string().default(""),
+  /** scene-card outline (JSON): alpha point, subplots, plot cause/effect, story why/realization */
+  card: z.string().default(""),
   /** sibling ordering */
   order: z.number(),
   wordCount: z.number().default(0),

@@ -2,6 +2,7 @@ import { lazy, Suspense, useEffect, useRef, useState } from "react";
 import type { Project, StoryNode, Entity, NodeType, EntityType } from "@incipit/shared";
 import * as api from "../api.js";
 import { ManuscriptTree } from "./ManuscriptTree.js";
+import { SceneCards } from "./SceneCards.js";
 import { Editor } from "./Editor.js";
 import { StoryBible } from "./StoryBible.js";
 import { OutlineModal } from "./OutlineModal.js";
@@ -21,6 +22,7 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
   const [showOutline, setShowOutline] = useState(false);
   const [showBook, setShowBook] = useState(false);
   const [showStoryboard, setShowStoryboard] = useState(false);
+  const [showCards, setShowCards] = useState(false);
   const [toolState, setToolState] = useState<ToolState | null>(null);
   const toolActionsRef = useRef<ToolActions | null>(null);
   const [navPinned, setNavPinned] = useState(() => localStorage.getItem("incipit-nav-pinned") === "1");
@@ -176,6 +178,12 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
             Outline
           </button>
           <button
+            onClick={() => setShowCards(true)}
+            className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated"
+          >
+            Scene cards
+          </button>
+          <button
             onClick={() => setShowStoryboard(true)}
             className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated"
           >
@@ -327,6 +335,20 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
       )}
 
       {showBook && <BookView project={project} nodes={nodes} onClose={() => setShowBook(false)} />}
+
+      {showCards && (
+        <SceneCards
+          nodes={nodes}
+          selectedId={selectedId}
+          onJump={(id) => {
+            setSelectedId(id);
+            setShowCards(false);
+          }}
+          onMove={moveNode}
+          onPatch={patchNodeLocal}
+          onClose={() => setShowCards(false)}
+        />
+      )}
 
       {showStoryboard && (
         <Suspense fallback={<div className="fixed inset-0 z-50 flex items-center justify-center bg-void text-mute">Loading storyboard…</div>}>

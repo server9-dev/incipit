@@ -76,7 +76,7 @@ export const createNode = (input: { projectId: string; parentId: string | null; 
   nodes.create(input);
 export const updateNode = (
   id: string,
-  patch: Partial<Pick<StoryNode, "title" | "synopsis" | "content" | "pov" | "epigraph" | "ink" | "order" | "parentId">>,
+  patch: Partial<Pick<StoryNode, "title" | "synopsis" | "content" | "pov" | "epigraph" | "ink" | "card" | "order" | "parentId">>,
 ) => nodes.update(id, patch) as Promise<StoryNode>;
 export const deleteNode = (id: string) => nodes.remove(id);
 export const moveNode = async (id: string, parentId: string | null, index: number) => ({
