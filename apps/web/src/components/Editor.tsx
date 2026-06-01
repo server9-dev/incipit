@@ -16,6 +16,7 @@ import { initialHtml, textToHtml, textToInlineHtml } from "../richtext.js";
 import { LOCAL_REFINE } from "../localcraft.js";
 import { useDictation } from "../useDictation.js";
 import { useWhisperDictation } from "../whisperDictation.js";
+import { useLiveDictation } from "../useLiveDictation.js";
 import {
   spellcheckExtension,
   loadDictionary,
@@ -330,7 +331,11 @@ export function Editor({
 
   const insertSpoken = (text: string) => editor?.chain().focus().insertContent(text.replace(/\s+$/, "") + " ").run();
   const dictation = useDictation(insertSpoken);
+  const live = useLiveDictation(insertSpoken);
   const whisper = useWhisperDictation(insertSpoken);
+  // Web Speech is the live path in a real browser; in the desktop WebView (where
+  // it has no backend) fall back to on-device streaming Whisper for "Dictate".
+  const liveMode = !dictation.supported && live.supported;
 
   const busy = gen !== null;
 
@@ -470,7 +475,7 @@ export function Editor({
       draft: runDraft,
       refine: runRefine,
       handwrite: () => setHandwriting(true),
-      dictate: dictation.toggle,
+      dictate: liveMode ? live.toggle : dictation.toggle,
       whisper: whisper.toggle,
     };
   });
@@ -485,13 +490,13 @@ export function Editor({
       hasInk: !!node.ink,
       isVerse,
       drafting: gen === "Drafting",
-      dictating: dictation.active,
-      dictationSupported: dictation.supported,
+      dictating: dictation.active || live.active,
+      dictationSupported: dictation.supported || live.supported,
       whisperRecording: whisper.recording,
       whisperBusy: whisper.busy,
       whisperSupported: whisper.supported,
     });
-  }, [busy, connected, hasContent, node.ink, isVerse, gen, dictation.active, dictation.supported, whisper.recording, whisper.busy, whisper.supported, onToolState]);
+  }, [busy, connected, hasContent, node.ink, isVerse, gen, dictation.active, dictation.supported, live.active, live.supported, whisper.recording, whisper.busy, whisper.supported, onToolState]);
 
   useEffect(
     () => () => {
@@ -571,11 +576,16 @@ export function Editor({
               onToggleManuscript={() => setManuscript((m) => !m)}
             />
           )}
-          {dictation.active && (
+          {(dictation.active || live.active) && (
             <div className="flex items-center gap-2 border-b border-linesoft bg-surface px-4 py-1.5 text-xs">
               <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
-              <span className="text-dim">Listening… speak and it types into the page.</span>
-              {dictation.interim && <span className="truncate italic text-mute">{dictation.interim}</span>}
+              <span className="text-dim">
+                {live.active
+                  ? live.progress ||
+                    (live.busy ? "Transcribing your last phrase…" : "Listening on-device — speak, then pause and it types the phrase.")
+                  : "Listening… speak and it types into the page."}
+              </span>
+              {dictation.active && dictation.interim && <span className="truncate italic text-mute">{dictation.interim}</span>}
             </div>
           )}
           {(whisper.recording || whisper.busy) && (

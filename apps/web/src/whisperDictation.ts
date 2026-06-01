@@ -6,7 +6,7 @@ const MODEL = "onnx-community/whisper-tiny.en";
 let transcriber: ((audio: Float32Array) => Promise<{ text?: string }>) | null = null;
 let loading: Promise<typeof transcriber> | null = null;
 
-async function getTranscriber(onProgress?: (pct: number) => void) {
+export async function getTranscriber(onProgress?: (pct: number) => void) {
   if (transcriber) return transcriber;
   if (loading) return loading;
   loading = (async () => {
