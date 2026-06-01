@@ -11,6 +11,7 @@ pub fn run() {
   tauri::Builder::default()
     .plugin(tauri_plugin_http::init())
     .plugin(tauri_plugin_dialog::init())
+    .plugin(tauri_plugin_opener::init())
     .invoke_handler(tauri::generate_handler![write_file])
     // Builds up to 0.1.25 registered a precaching service worker. The webview
     // keeps it in its own profile across app updates, so it serves the original

@@ -5,6 +5,7 @@ import { ProjectList } from "./components/ProjectList.js";
 import { Workspace } from "./components/Workspace.js";
 import { SettingsModal } from "./components/SettingsModal.js";
 import { getAvailableUpdate, installUpdate, type UpdateInfo } from "./updater.js";
+import { openExternal, SPONSOR_URL } from "./openUrl.js";
 
 export default function App() {
   const [projectId, setProjectId] = useState<string | null>(null);
@@ -44,21 +45,30 @@ export default function App() {
           <span className="brand-gradient text-base font-semibold tracking-tight">Incipit</span>
           <span className="text-xs text-mute">fiction studio · local-first</span>
         </div>
-        <button
-          onClick={() => setShowSettings(true)}
-          title="AI model & provider settings"
-          className="flex items-center gap-2 rounded-md border border-line px-2.5 py-1 text-xs text-dim hover:bg-elevated"
-        >
-          <span className={`h-2 w-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`} />
-          {connected ? "AI ready" : "Enable AI"}
-          <span className="text-mute">⚙</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => void openExternal(SPONSOR_URL)}
+            title="Incipit is free and donation-funded — consider supporting it 💜"
+            className="rounded-md border border-line px-2.5 py-1 text-xs text-dim hover:bg-elevated"
+          >
+            ♥ Donate
+          </button>
+          <button
+            onClick={() => setShowSettings(true)}
+            title="AI model & provider settings"
+            className="flex items-center gap-2 rounded-md border border-line px-2.5 py-1 text-xs text-dim hover:bg-elevated"
+          >
+            <span className={`h-2 w-2 rounded-full ${connected ? "bg-green-500" : "bg-red-500"}`} />
+            {connected ? "AI ready" : "Enable AI"}
+            <span className="text-mute">⚙</span>
+          </button>
+        </div>
       </header>
 
       {update && (
         <div className="flex items-center gap-3 border-b border-linesoft bg-surface2 px-5 py-2 text-sm">
           <span className="text-fg">
-            <span className="brand-gradient font-semibold">Server9</span> has a new update for you :) — Incipit {update.version}.
+            <span className="brand-gradient font-semibold">Incipit</span> has a new update for you :) — version {update.version}.
             <span className="text-mute"> Your work stays put.</span>
           </span>
           <div className="ml-auto flex gap-2">
@@ -76,6 +86,12 @@ export default function App() {
               className="rounded-md bg-brand px-3 py-1 text-xs font-medium text-ink hover:bg-brand-dark disabled:opacity-50"
             >
               {updating ? "Updating…" : "Update & restart"}
+            </button>
+            <button
+              onClick={() => void openExternal(SPONSOR_URL)}
+              className="rounded-md border border-line px-3 py-1 text-xs font-medium text-mute hover:bg-elevated"
+            >
+              ♥ Consider donating
             </button>
             <button onClick={() => setUpdate(null)} className="rounded-md border border-line px-3 py-1 text-xs font-medium text-mute hover:bg-elevated">
               Later
