@@ -21,7 +21,7 @@ type Item =
   | { kind: "chapter" | "part"; title: string; pov?: string; epigraph?: string; num?: number }
   | { kind: "scene-break" }
   | { kind: "epigraph"; text: string }
-  | { kind: "block"; html: string; first?: boolean; cont?: boolean }
+  | { kind: "block"; html: string; first?: boolean; cont?: boolean; splitHead?: boolean }
   | { kind: "fullbleed"; src: string };
 
 type TreeItem = StoryNode & { children: TreeItem[] };
@@ -99,11 +99,16 @@ const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replac
 
 function itemHtml(item: Item, chapterTopPx: number, fmt: ProjectFormat): string {
   if (item.kind === "block") {
+    const cls: string[] = [];
     // drop cap: tag the chapter's opening paragraph so CSS can enlarge its first letter
-    if (item.first && fmt.dropCap) return item.html.replace(/^<p(\s|>)/i, '<p class="book-firstpara"$1');
+    if (item.first && fmt.dropCap) cls.push("book-firstpara");
     // a paragraph continued from the previous page keeps no first-line indent
-    if (item.cont) return item.html.replace(/^<p(\s|>)/i, '<p class="book-cont"$1');
-    return item.html;
+    else if (item.cont) cls.push("book-cont");
+    // a paragraph that continues onto the next page must justify its bottom line
+    // (it isn't really the end of the paragraph, so the default ragged last line is wrong)
+    if (item.splitHead) cls.push("book-splithead");
+    if (!cls.length) return item.html;
+    return item.html.replace(/^<p(\s|>)/i, `<p class="${cls.join(" ")}"$1`);
   }
   if (item.kind === "fullbleed") return ""; // rendered as its own page, not in the flow
   if (item.kind === "scene-break") return `<div class="book-scene-break">${esc(fmt.ornament)}</div>`;
@@ -255,7 +260,13 @@ export function BookView({
         if (k > 0 && k < sp.words.length) {
           const head = `${sp.open}${sp.words.slice(0, k).join(" ")}${sp.close}`;
           const tail = `${sp.open}${sp.words.slice(k).join(" ")}${sp.close}`;
-          cur.push({ kind: "block", html: head, first: item.kind === "block" ? item.first : undefined });
+          cur.push({
+            kind: "block",
+            html: head,
+            first: item.kind === "block" ? item.first : undefined,
+            cont: item.kind === "block" ? item.cont : undefined, // keep no-indent if this was itself a continuation
+            splitHead: true, // its bottom line continues onto the next page → justify it
+          });
           flush();
           queue.splice(i, 0, { kind: "block", html: tail, cont: true }); // continued on next page
           continue;

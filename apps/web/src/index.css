@@ -282,6 +282,12 @@ body {
 .book-prose p.book-cont {
   text-indent: 0;
 }
+/* a paragraph that continues onto the next page: justify its bottom line too,
+   since it isn't actually the end of the paragraph */
+.book-prose p.book-splithead {
+  text-align: justify;
+  text-align-last: justify;
+}
 .book-prose.dropcap p.book-firstpara::first-letter {
   float: left;
   font-size: 3.1em;
