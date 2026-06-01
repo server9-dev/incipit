@@ -6,6 +6,7 @@ import { TextStyle, FontFamily } from "@tiptap/extension-text-style";
 import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
+import { typographyExtension } from "../typography.js";
 import { REFINE_LABELS, type Project, type StoryNode, type Entity, type RefineAction } from "@incipit/shared";
 import { transcribe as transcribeApi } from "../api.js";
 import { draftStream, refineStream } from "../clientai.js";
@@ -175,6 +176,7 @@ export function Editor({
   const editor = useEditor({
     extensions: [
       StarterKit,
+      typographyExtension,
       Highlight.configure({ multicolor: true }),
       TextStyle,
       FontFamily,
