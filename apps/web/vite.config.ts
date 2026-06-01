@@ -3,11 +3,21 @@ import react from "@vitejs/plugin-react";
 import tailwindcss from "@tailwindcss/vite";
 import { VitePWA } from "vite-plugin-pwa";
 
+// Tauri sets TAURI_ENV_* when it runs this build. Inside the desktop webview the
+// assets are already local and offline, so a service worker adds nothing but a
+// caching layer that survives app updates (WebView2 keeps it in its own user-data
+// dir) and serves stale chunks — the dictionary and other lazy imports then need
+// a manual hard-refresh to load. For desktop builds we ship a self-destroying SW:
+// it unregisters any previously-installed worker and clears its caches on next
+// launch, then stays out of the way. The web PWA build keeps the real SW.
+const isTauriBuild = Boolean(process.env.TAURI_ENV_PLATFORM);
+
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
     VitePWA({
+      selfDestroying: isTauriBuild,
       registerType: "autoUpdate",
       injectRegister: "auto",
       manifest: {
