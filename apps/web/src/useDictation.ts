@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState } from "react";
+import { isTauri } from "./store/ai.js";
 
 /* Minimal typing for the Web Speech API (not in lib.dom by default). */
 type SREvent = { resultIndex: number; results: ArrayLike<ArrayLike<{ transcript: string }> & { isFinal: boolean }> };
@@ -33,7 +34,11 @@ export function useDictation(onFinal: (text: string) => void) {
   const cb = useRef(onFinal);
   cb.current = onFinal;
 
-  const supported = !!getCtor();
+  // The Web Speech API exists in the desktop WebView (Chromium) but has no
+  // speech backend there — Google's service ships only in real Chrome — so it
+  // would listen forever and transcribe nothing. Treat it as unsupported in the
+  // desktop app; the on-device Whisper mic is offered instead.
+  const supported = !!getCtor() && !isTauri();
 
   function start() {
     const Ctor = getCtor();
@@ -65,11 +70,20 @@ export function useDictation(onFinal: (text: string) => void) {
       }
     };
     r.onerror = (e) => {
-      if (e.error === "not-allowed" || e.error === "service-not-allowed") {
+      if (e.error === "not-allowed") {
         activeRef.current = false;
         setActive(false);
         setInterim("");
         alert("Microphone permission was denied.");
+      } else if (e.error === "service-not-allowed" || e.error === "network" || e.error === "language-not-supported") {
+        // no speech backend (e.g. a Chromium webview without Google's service):
+        // it would otherwise listen forever and return nothing
+        activeRef.current = false;
+        setActive(false);
+        setInterim("");
+        alert(
+          "Live dictation isn't available here — it needs a browser speech service. Use the 🎙 Whisper button for private, on-device dictation instead.",
+        );
       }
     };
     rec.current = r;

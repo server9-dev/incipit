@@ -23,6 +23,18 @@ export const ORNAMENTS = ["#", "* * *", "• • •", "❧", "⁂", "❦", "◆
 
 export type ChapterStyle = "centered" | "left" | "numbered" | "smallcaps";
 
+/** Page-number (folio) position. "bo" = bottom outer (alternates by page parity). */
+export type FolioPos = "bc" | "bo" | "br" | "tc" | "tr" | "none";
+
+export const FOLIO_OPTIONS: { key: FolioPos; label: string }[] = [
+  { key: "bc", label: "Bottom center" },
+  { key: "bo", label: "Bottom outer" },
+  { key: "br", label: "Bottom right" },
+  { key: "tc", label: "Top center" },
+  { key: "tr", label: "Top right" },
+  { key: "none", label: "None" },
+];
+
 export type ProjectFormat = {
   /** preset key, or "custom" once the reader tweaks an individual control */
   theme: string;
@@ -31,28 +43,32 @@ export type ProjectFormat = {
   ornament: string;
   bodyFont: BookFont;
   headingFont: BookFont;
+  /** where the page number sits */
+  folio: FolioPos;
+  /** let a paragraph break across a page boundary instead of moving whole */
+  splitParagraphs: boolean;
 };
 
 export const FORMAT_THEMES: { key: string; label: string; format: Omit<ProjectFormat, "theme"> }[] = [
   {
     key: "classic",
     label: "Classic",
-    format: { dropCap: true, chapterStyle: "centered", ornament: "#", bodyFont: "garamond", headingFont: "garamond" },
+    format: { dropCap: true, chapterStyle: "centered", ornament: "#", bodyFont: "garamond", headingFont: "garamond", folio: "bc", splitParagraphs: true },
   },
   {
     key: "modern",
     label: "Modern",
-    format: { dropCap: false, chapterStyle: "left", ornament: "• • •", bodyFont: "georgia", headingFont: "sans" },
+    format: { dropCap: false, chapterStyle: "left", ornament: "• • •", bodyFont: "georgia", headingFont: "sans", folio: "bc", splitParagraphs: true },
   },
   {
     key: "literary",
     label: "Literary",
-    format: { dropCap: true, chapterStyle: "smallcaps", ornament: "❧", bodyFont: "baskerville", headingFont: "baskerville" },
+    format: { dropCap: true, chapterStyle: "smallcaps", ornament: "❧", bodyFont: "baskerville", headingFont: "baskerville", folio: "bo", splitParagraphs: true },
   },
   {
     key: "romance",
     label: "Romance",
-    format: { dropCap: true, chapterStyle: "numbered", ornament: "❦", bodyFont: "garamond", headingFont: "garamond" },
+    format: { dropCap: true, chapterStyle: "numbered", ornament: "❦", bodyFont: "garamond", headingFont: "garamond", folio: "bc", splitParagraphs: true },
   },
 ];
 
@@ -64,6 +80,7 @@ export function parseFormat(s: string): ProjectFormat {
     const o = JSON.parse(s) as Partial<ProjectFormat>;
     const font = (v: unknown, d: BookFont): BookFont => (typeof v === "string" && v in BOOK_FONTS ? (v as BookFont) : d);
     const styles: ChapterStyle[] = ["centered", "left", "numbered", "smallcaps"];
+    const folios: FolioPos[] = ["bc", "bo", "br", "tc", "tr", "none"];
     return {
       theme: typeof o.theme === "string" ? o.theme : "custom",
       dropCap: typeof o.dropCap === "boolean" ? o.dropCap : DEFAULT_FORMAT.dropCap,
@@ -71,6 +88,8 @@ export function parseFormat(s: string): ProjectFormat {
       ornament: typeof o.ornament === "string" && o.ornament ? o.ornament : DEFAULT_FORMAT.ornament,
       bodyFont: font(o.bodyFont, DEFAULT_FORMAT.bodyFont),
       headingFont: font(o.headingFont, DEFAULT_FORMAT.headingFont),
+      folio: folios.includes(o.folio as FolioPos) ? (o.folio as FolioPos) : DEFAULT_FORMAT.folio,
+      splitParagraphs: typeof o.splitParagraphs === "boolean" ? o.splitParagraphs : DEFAULT_FORMAT.splitParagraphs,
     };
   } catch {
     return { ...DEFAULT_FORMAT };

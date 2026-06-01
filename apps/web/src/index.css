@@ -278,6 +278,10 @@ body {
 .book-prose.dropcap p.book-firstpara {
   text-indent: 0;
 }
+/* a paragraph continued from the previous page starts flush, no indent */
+.book-prose p.book-cont {
+  text-indent: 0;
+}
 .book-prose.dropcap p.book-firstpara::first-letter {
   float: left;
   font-size: 3.1em;
@@ -285,6 +289,42 @@ body {
   padding: 0.05em 0.08em 0 0;
   font-weight: 600;
   font-family: var(--book-head, "EB Garamond", Georgia, serif);
+}
+
+/* ---- Manuscript view: the book theme painted onto the live writing surface ---- */
+.manuscript-surface .incipit-prose,
+.manuscript-surface .ProseMirror {
+  font-family: var(--book-body, "EB Garamond", Georgia, serif);
+}
+.manuscript-surface .incipit-prose h1,
+.manuscript-surface .incipit-prose h2 {
+  font-family: var(--book-head, "EB Garamond", Georgia, serif);
+}
+.manuscript-surface .incipit-prose p {
+  text-indent: 1.5em;
+  text-align: justify;
+}
+.manuscript-surface .incipit-prose > p:first-of-type {
+  text-indent: 0;
+}
+.manuscript-surface.chap-smallcaps .incipit-prose h1 {
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+}
+.manuscript-surface.dropcap .incipit-prose > p:first-of-type::first-letter {
+  float: left;
+  font-size: 3.1em;
+  line-height: 0.72;
+  padding: 0.05em 0.08em 0 0;
+  font-weight: 600;
+  font-family: var(--book-head, "EB Garamond", Georgia, serif);
+}
+/* centered / right paragraphs keep no indent even in manuscript view */
+.manuscript-surface .incipit-prose [style*="text-align: center"],
+.manuscript-surface .incipit-prose [style*="text-align: right"],
+.manuscript-surface .incipit-prose [style*="text-align:center"],
+.manuscript-surface .incipit-prose [style*="text-align:right"] {
+  text-indent: 0;
 }
 
 /* alignment fix: centered / right / justified text must not keep the

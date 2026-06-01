@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useState, type CSSProperties } from "react";
 import { useEditor, EditorContent, type Editor as TiptapEditor } from "@tiptap/react";
 import StarterKit from "@tiptap/starter-kit";
 import Highlight from "@tiptap/extension-highlight";
@@ -7,7 +7,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import { typographyExtension } from "../typography.js";
-import { REFINE_LABELS, type Project, type StoryNode, type Entity, type RefineAction } from "@incipit/shared";
+import { REFINE_LABELS, parseFormat, BOOK_FONTS, type Project, type StoryNode, type Entity, type RefineAction } from "@incipit/shared";
 import { transcribe as transcribeApi } from "../api.js";
 import { draftStream, refineStream } from "../clientai.js";
 import { SuggestionReview } from "./SuggestionReview.js";
@@ -141,6 +141,13 @@ export function Editor({
   useEffect(() => {
     localStorage.setItem("incipit-paper", paperKey);
   }, [paperKey]);
+  // "Manuscript view": paint the project's book theme (fonts, drop caps, indents)
+  // onto the writing surface so the page looks like the finished book as you type.
+  const format = useMemo(() => parseFormat(project.format), [project.format]);
+  const [manuscript, setManuscript] = useState(() => localStorage.getItem("incipit-manuscript") !== "0");
+  useEffect(() => {
+    localStorage.setItem("incipit-manuscript", manuscript ? "1" : "0");
+  }, [manuscript]);
   const [handwriting, setHandwriting] = useState(false);
   const [spellOn, setSpellOn] = useState(spellcheckEnabled());
   const [spellMenu, setSpellMenu] = useState<{
@@ -560,6 +567,8 @@ export function Editor({
               onPaper={setPaperKey}
               spellOn={spellOn}
               onToggleSpell={toggleSpellcheck}
+              manuscript={manuscript}
+              onToggleManuscript={() => setManuscript((m) => !m)}
             />
           )}
           {dictation.active && (
@@ -577,7 +586,20 @@ export function Editor({
               </span>
             </div>
           )}
-          <div className="flex-1 overflow-y-auto" style={{ background: paper.bg, color: paper.fg }}>
+          <div
+            className={`flex-1 overflow-y-auto ${
+              manuscript ? `manuscript-surface chap-${format.chapterStyle}${format.dropCap ? " dropcap" : ""}` : ""
+            }`}
+            style={
+              {
+                background: paper.bg,
+                color: paper.fg,
+                ...(manuscript
+                  ? { "--book-body": BOOK_FONTS[format.bodyFont].stack, "--book-head": BOOK_FONTS[format.headingFont].stack }
+                  : {}),
+              } as CSSProperties
+            }
+          >
             <EditorContent editor={editor} className="h-full" />
           </div>
           {spellMenu && (
@@ -662,6 +684,8 @@ function FormatBar({
   onPaper,
   spellOn,
   onToggleSpell,
+  manuscript,
+  onToggleManuscript,
 }: {
   editor: TiptapEditor;
   onSave: () => void;
@@ -669,6 +693,8 @@ function FormatBar({
   onPaper: (k: string) => void;
   spellOn: boolean;
   onToggleSpell: () => void;
+  manuscript: boolean;
+  onToggleManuscript: () => void;
 }) {
   const [, force] = useState(0);
   useEffect(() => {
@@ -766,6 +792,12 @@ function FormatBar({
         label="ABC✓"
         title="Spell check — underlines unknown words. Right-click a flagged word, or select any word, to add it to your dictionary."
         click={onToggleSpell}
+      />
+      <Btn
+        on={manuscript}
+        label="📖"
+        title="Manuscript view — show the book formatting (theme fonts, drop caps, indents) as you write. Change the theme in Book view."
+        click={onToggleManuscript}
       />
       <select
         value={paperKey}

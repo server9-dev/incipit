@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import type { Project, StoryNode, ProjectFormat, BookFont, ChapterStyle } from "@incipit/shared";
-import { parseFormat, FORMAT_THEMES, BOOK_FONTS, ORNAMENTS } from "@incipit/shared";
+import type { Project, StoryNode, ProjectFormat, BookFont, ChapterStyle, FolioPos } from "@incipit/shared";
+import { parseFormat, FORMAT_THEMES, BOOK_FONTS, ORNAMENTS, FOLIO_OPTIONS } from "@incipit/shared";
 import { buildEpub, downloadBlob } from "../epub.js";
 
 /* Standard US trim sizes (inches). */
@@ -21,7 +21,7 @@ type Item =
   | { kind: "chapter" | "part"; title: string; pov?: string; epigraph?: string; num?: number }
   | { kind: "scene-break" }
   | { kind: "epigraph"; text: string }
-  | { kind: "block"; html: string; first?: boolean }
+  | { kind: "block"; html: string; first?: boolean; cont?: boolean }
   | { kind: "fullbleed"; src: string };
 
 type TreeItem = StoryNode & { children: TreeItem[] };
@@ -101,6 +101,8 @@ function itemHtml(item: Item, chapterTopPx: number, fmt: ProjectFormat): string 
   if (item.kind === "block") {
     // drop cap: tag the chapter's opening paragraph so CSS can enlarge its first letter
     if (item.first && fmt.dropCap) return item.html.replace(/^<p(\s|>)/i, '<p class="book-firstpara"$1');
+    // a paragraph continued from the previous page keeps no first-line indent
+    if (item.cont) return item.html.replace(/^<p(\s|>)/i, '<p class="book-cont"$1');
     return item.html;
   }
   if (item.kind === "fullbleed") return ""; // rendered as its own page, not in the flow
@@ -114,6 +116,54 @@ function itemHtml(item: Item, chapterTopPx: number, fmt: ProjectFormat): string 
   const pov = item.pov ? `<div class="book-pov">${esc(item.pov)}</div>` : "";
   const epi = item.epigraph ? `<div class="book-epigraph">${esc(item.epigraph)}</div>` : "";
   return `<div style="padding-top:${chapterTopPx}px">${num}<div class="${cls}">${esc(item.title)}</div>${pov}${epi}</div>`;
+}
+
+/** A plain (no inline markup) paragraph we can break mid-way across a page. */
+function splittablePara(html: string): { open: string; close: string; words: string[] } | null {
+  const doc = new DOMParser().parseFromString(html || "", "text/html");
+  if (doc.body.children.length !== 1) return null;
+  const el = doc.body.children[0]!;
+  if (el.tagName.toLowerCase() !== "p" || el.children.length > 0) return null; // markup → keep whole
+  const words = (el.textContent ?? "").split(/\s+/).filter(Boolean);
+  if (words.length < 8) return null; // too short to be worth splitting
+  const attrs = Array.from(el.attributes)
+    .map((a) => ` ${a.name}="${a.value.replace(/"/g, "&quot;")}"`)
+    .join("");
+  return { open: `<p${attrs}>`, close: "</p>", words };
+}
+
+/** Largest word count whose rendered height fits maxH (binary search). */
+function fitWords(sp: { open: string; close: string; words: string[] }, maxH: number, measure: (html: string) => number): number {
+  let lo = 1;
+  let hi = sp.words.length - 1;
+  let best = 0;
+  while (lo <= hi) {
+    const mid = (lo + hi) >> 1;
+    const hgt = measure(`${sp.open}${sp.words.slice(0, mid).join(" ")}${sp.close}`);
+    if (hgt <= maxH) {
+      best = mid;
+      lo = mid + 1;
+    } else {
+      hi = mid - 1;
+    }
+  }
+  return best;
+}
+
+/** Folio (page number) position — placement varies, "bo" alternates by page parity. */
+function folioStyle(pos: FolioPos, pageNum: number, sideIn: number): CSSProperties | null {
+  if (pos === "none") return null;
+  const top = pos === "tc" || pos === "tr";
+  let align: "left" | "center" | "right" = "center";
+  if (pos === "br" || pos === "tr") align = "right";
+  if (pos === "bo") align = pageNum % 2 === 1 ? "right" : "left"; // recto (odd) → outer right
+  return {
+    left: `${sideIn}in`,
+    right: `${sideIn}in`,
+    top: top ? "0.4in" : "auto",
+    bottom: top ? "auto" : "0.4in",
+    textAlign: align,
+  };
 }
 
 export function BookView({
@@ -179,7 +229,12 @@ export function BookView({
       cur = [];
       h = 0;
     };
-    for (const item of items) {
+
+    // a local worklist so a split paragraph's remainder can be requeued
+    const queue: Item[] = items.slice();
+    let i = 0;
+    while (i < queue.length) {
+      const item = queue[i++]!;
       if (item.kind === "fullbleed") {
         flush();
         out.push([item]); // a full-bleed image is its own page
@@ -192,7 +247,21 @@ export function BookView({
         continue;
       }
       const eh = measure(itemHtml(item, chapterTopPx, format));
-      if (h + eh > contentH && cur.length) flush();
+      const remaining = contentH - h;
+      // try to break a too-tall paragraph at the line that crosses the page edge
+      const sp = format.splitParagraphs && item.kind === "block" ? splittablePara(item.html) : null;
+      if (eh > remaining && sp && remaining > 36) {
+        const k = fitWords(sp, remaining, measure);
+        if (k > 0 && k < sp.words.length) {
+          const head = `${sp.open}${sp.words.slice(0, k).join(" ")}${sp.close}`;
+          const tail = `${sp.open}${sp.words.slice(k).join(" ")}${sp.close}`;
+          cur.push({ kind: "block", html: head, first: item.kind === "block" ? item.first : undefined });
+          flush();
+          queue.splice(i, 0, { kind: "block", html: tail, cont: true }); // continued on next page
+          continue;
+        }
+      }
+      if (eh > remaining && cur.length) flush();
       cur.push(item);
       h += eh;
     }
@@ -329,6 +398,28 @@ export function BookView({
                     ))}
                   </select>
                 </label>
+                <label className="flex items-center justify-between gap-2">
+                  <span className="text-dim">Page numbers</span>
+                  <select
+                    value={format.folio}
+                    onChange={(e) => setField("folio", e.target.value as FolioPos)}
+                    className="rounded border border-line bg-surface px-1 py-0.5 text-fg outline-none"
+                  >
+                    {FOLIO_OPTIONS.map((o) => (
+                      <option key={o.key} value={o.key}>
+                        {o.label}
+                      </option>
+                    ))}
+                  </select>
+                </label>
+                <label className="flex items-center justify-between gap-2">
+                  <span className="text-dim">Split paragraphs across pages</span>
+                  <input
+                    type="checkbox"
+                    checked={format.splitParagraphs}
+                    onChange={(e) => setField("splitParagraphs", e.target.checked)}
+                  />
+                </label>
                 <button
                   onClick={() => setFmtOpen(false)}
                   className="w-full rounded border border-line py-1 text-dim hover:bg-elevated"
@@ -389,7 +480,14 @@ export function BookView({
                         <div key={j} dangerouslySetInnerHTML={{ __html: itemHtml(item, chapterTopPx, format) }} />
                       ))}
                     </div>
-                    <div className="book-folio">{i + 1}</div>
+                    {(() => {
+                      const fs = folioStyle(format.folio, i + 1, MARGIN.side);
+                      return fs ? (
+                        <div className="book-folio" style={fs}>
+                          {i + 1}
+                        </div>
+                      ) : null;
+                    })()}
                   </>
                 )}
               </div>
