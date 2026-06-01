@@ -302,7 +302,7 @@ export function BookView({
 
   return (
     <div className="book-view-root fixed inset-0 z-50 flex flex-col bg-void">
-      <div className="book-toolbar flex items-center gap-3 border-b border-linesoft bg-surface px-4 py-2">
+      <div className="book-toolbar flex flex-wrap items-center gap-x-3 gap-y-2 border-b border-linesoft bg-surface px-4 py-2">
         <span className="font-semibold text-fg">{project.title}</span>
         <span className="text-xs text-mute">Book view · {pages.length} pages · {totalWords.toLocaleString()} words</span>
         <select
