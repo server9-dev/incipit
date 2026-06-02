@@ -1,5 +1,6 @@
 import type { Project, ProjectType, StoryNode, NodeType, Entity, EntityType } from "@incipit/shared";
-import { projects, nodes, entities, settings } from "./store/db.js";
+import { projects, nodes, entities, settings, stats, sprints, goals } from "./store/db.js";
+import type { GoalRow } from "./store/db.js";
 import { ingestStoryboard as ingest } from "./store/storyboard.js";
 import { clientVision, effectiveConfig, connectionStatus, ollamaModels } from "./store/ai.js";
 
@@ -89,6 +90,21 @@ export const createEntity = (input: { projectId: string; type: EntityType; name:
 export const updateEntity = (id: string, patch: Partial<Pick<Entity, "name" | "summary" | "notes" | "profile">>) =>
   entities.update(id, patch) as Promise<Entity>;
 export const deleteEntity = (id: string) => entities.remove(id);
+
+/* writing stats (analytics / goals foundation) */
+export const writingSummary = (projectId?: string) => stats.summary(projectId);
+export const writingToday = (projectId?: string) => stats.today(projectId);
+export const writingSeries = (projectId: string | undefined, days: number) => stats.series(projectId, days);
+export const targetStreak = (projectId: string | undefined, target: number) => stats.targetStreak(projectId, target);
+
+/* goals */
+export const getGoal = (projectId: string) => goals.get(projectId);
+export const setGoal = (projectId: string, patch: Partial<Omit<GoalRow, "projectId" | "updatedAt">>) => goals.set(projectId, patch);
+
+/* sprints */
+export const saveSprint = (input: { projectId: string; startTs: string; endTs: string; plannedSec: number; wordGoal: number; words: number }) =>
+  sprints.save(input);
+export const listSprints = (projectId: string, limit?: number) => sprints.list(projectId, limit);
 
 /* vision (handwriting → text) */
 export const transcribe = async (image: string) => ({ text: await clientVision(image) });

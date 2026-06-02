@@ -19,11 +19,49 @@ type ProjectRow = Project & { storyboard: string };
 type NodeRow = StoryNode & { originId: string };
 type EntityRow = Entity & { embedding: number[] | null };
 
+/* One row per save that changed the word count — the time-series foundation
+   that analytics, goals, and sprints all read from. `day` is the local
+   calendar date (YYYY-MM-DD) so daily rollups are a simple indexed query. */
+export type WritingLogRow = {
+  id: string;
+  projectId: string;
+  nodeId: string;
+  ts: string; // ISO timestamp of the save
+  day: string; // local YYYY-MM-DD
+  delta: number; // net word change for this save (can be negative)
+  words: number; // resulting word count of the node
+};
+
+/* A completed writing sprint. Net words are derived from the live word total
+   at start vs. finish, so a sprint needs no per-keystroke bookkeeping. */
+export type SprintRow = {
+  id: string;
+  projectId: string;
+  startTs: string;
+  endTs: string;
+  plannedSec: number; // chosen duration; 0 = open-ended
+  wordGoal: number; // 0 = no goal
+  words: number; // net words written during the sprint
+  createdAt: string;
+};
+
+/* Per-project writing goals — one row keyed by projectId. */
+export type GoalRow = {
+  projectId: string;
+  dailyTarget: number; // words/day, 0 = none
+  deadline: string; // YYYY-MM-DD, "" = none
+  totalTarget: number; // target manuscript size in words, 0 = none
+  updatedAt: string;
+};
+
 class IncipitDB extends Dexie {
   projects!: Table<ProjectRow, string>;
   nodes!: Table<NodeRow, string>;
   entities!: Table<EntityRow, string>;
   settings!: Table<{ key: string; value: string }, string>;
+  writingLog!: Table<WritingLogRow, string>;
+  sprints!: Table<SprintRow, string>;
+  goals!: Table<GoalRow, string>;
 
   constructor() {
     super("incipit");
@@ -33,6 +71,13 @@ class IncipitDB extends Dexie {
       entities: "id, projectId",
       settings: "key",
     });
+    this.version(2).stores({
+      writingLog: "id, projectId, day, ts, [projectId+day]",
+      sprints: "id, projectId, startTs",
+    });
+    this.version(3).stores({
+      goals: "projectId",
+    });
   }
 }
 
@@ -40,6 +85,15 @@ export const db = new IncipitDB();
 
 const id = () => crypto.randomUUID();
 const now = () => new Date().toISOString();
+/* Local calendar date (YYYY-MM-DD) — daily rollups key off the writer's own
+   day boundary, not UTC. */
+const fmtDay = (d: Date) =>
+  `${d.getFullYear()}-${`${d.getMonth() + 1}`.padStart(2, "0")}-${`${d.getDate()}`.padStart(2, "0")}`;
+const localDay = (iso: string) => fmtDay(new Date(iso));
+const shiftDay = (day: string, n: number) => {
+  const [y, m, d] = day.split("-").map(Number);
+  return fmtDay(new Date(y!, m! - 1, d! + n));
+};
 const stripHtml = (s: string) =>
   s.replace(/<[^>]+>/g, " ").replace(/&nbsp;/g, " ").replace(/&amp;/g, "&").replace(/\s+/g, " ").trim();
 const countWords = (s: string) => {
@@ -95,10 +149,13 @@ export const projects = {
     return stripRow(next, "storyboard");
   },
   async remove(pid: string) {
-    await db.transaction("rw", db.projects, db.nodes, db.entities, async () => {
+    await db.transaction("rw", [db.projects, db.nodes, db.entities, db.writingLog, db.sprints, db.goals], async () => {
       await db.projects.delete(pid);
       await db.nodes.where("projectId").equals(pid).delete();
       await db.entities.where("projectId").equals(pid).delete();
+      await db.writingLog.where("projectId").equals(pid).delete();
+      await db.sprints.where("projectId").equals(pid).delete();
+      await db.goals.delete(pid);
     });
   },
   async getStoryboard(pid: string): Promise<string> {
@@ -140,6 +197,13 @@ export const nodes = {
     const content = patch.content ?? cur.content;
     const next: NodeRow = { ...cur, ...patch, content, wordCount: countWords(content), updatedAt: now() };
     await db.nodes.put(next);
+    const delta = next.wordCount - cur.wordCount;
+    if (delta !== 0) {
+      await db.writingLog.add({
+        id: id(), projectId: cur.projectId, nodeId: nid, ts: next.updatedAt,
+        day: localDay(next.updatedAt), delta, words: next.wordCount,
+      });
+    }
     return toNode(next);
   },
   async remove(nid: string) {
@@ -271,5 +335,129 @@ export const settings = {
         else await db.settings.put({ key, value });
       }
     });
+  },
+};
+
+/* -------------------------------- stats --------------------------------- */
+
+export type DayPoint = { day: string; words: number };
+export type WritingSummary = {
+  today: number; // net words written today
+  total: number; // net words logged all-time
+  streakDays: number; // consecutive days (up to today/yesterday) with positive net
+  longestStreak: number; // longest run of consecutive positive days ever
+  daysWritten: number; // distinct days with positive net
+  bestDay: DayPoint | null;
+};
+
+/* Net words per local day, optionally scoped to a project and a start day.
+   Streams rows so a long history doesn't materialize as one big array. */
+async function aggregateByDay(projectId?: string, sinceDay?: string): Promise<Map<string, number>> {
+  const coll = projectId ? db.writingLog.where("projectId").equals(projectId) : db.writingLog.toCollection();
+  const map = new Map<string, number>();
+  await coll.each((r) => {
+    if (sinceDay && r.day < sinceDay) return;
+    map.set(r.day, (map.get(r.day) ?? 0) + r.delta);
+  });
+  return map;
+}
+
+export const stats = {
+  async today(projectId?: string): Promise<number> {
+    const map = await aggregateByDay(projectId, localDay(now()));
+    return map.get(localDay(now())) ?? 0;
+  },
+
+  async summary(projectId?: string): Promise<WritingSummary> {
+    const map = await aggregateByDay(projectId);
+    const todayKey = localDay(now());
+    let total = 0;
+    let daysWritten = 0;
+    let bestDay: DayPoint | null = null;
+    for (const [day, words] of map) {
+      total += words;
+      if (words > 0) {
+        daysWritten++;
+        if (!bestDay || words > bestDay.words) bestDay = { day, words };
+      }
+    }
+    // streak: walk back from today (or yesterday, so today's blank page
+    // doesn't read as a broken streak) while each day has positive net.
+    let cursor = (map.get(todayKey) ?? 0) > 0 ? todayKey : shiftDay(todayKey, -1);
+    let streakDays = 0;
+    while ((map.get(cursor) ?? 0) > 0) {
+      streakDays++;
+      cursor = shiftDay(cursor, -1);
+    }
+    // longest streak: scan positive days in date order for the longest run of
+    // calendar-adjacent days.
+    const positiveDays = [...map.entries()].filter(([, w]) => w > 0).map(([d]) => d).sort();
+    let longestStreak = 0;
+    let run = 0;
+    let prev = "";
+    for (const d of positiveDays) {
+      run = prev && shiftDay(prev, 1) === d ? run + 1 : 1;
+      prev = d;
+      if (run > longestStreak) longestStreak = run;
+    }
+    return { today: map.get(todayKey) ?? 0, total, streakDays, longestStreak, daysWritten, bestDay };
+  },
+
+  /* Consecutive days (up to today/yesterday) that met a daily word target. */
+  async targetStreak(projectId: string | undefined, target: number): Promise<number> {
+    if (target <= 0) return 0;
+    const map = await aggregateByDay(projectId);
+    const todayKey = localDay(now());
+    let cursor = (map.get(todayKey) ?? 0) >= target ? todayKey : shiftDay(todayKey, -1);
+    let n = 0;
+    while ((map.get(cursor) ?? 0) >= target) {
+      n++;
+      cursor = shiftDay(cursor, -1);
+    }
+    return n;
+  },
+
+  /* Zero-filled daily series for the last `days` days, oldest → newest. */
+  async series(projectId: string | undefined, days: number): Promise<DayPoint[]> {
+    const todayKey = localDay(now());
+    const from = shiftDay(todayKey, -(days - 1));
+    const map = await aggregateByDay(projectId, from);
+    const out: DayPoint[] = [];
+    for (let i = days - 1; i >= 0; i--) {
+      const day = shiftDay(todayKey, -i);
+      out.push({ day, words: map.get(day) ?? 0 });
+    }
+    return out;
+  },
+};
+
+/* -------------------------------- sprints ------------------------------- */
+
+export const sprints = {
+  async save(input: { projectId: string; startTs: string; endTs: string; plannedSec: number; wordGoal: number; words: number }): Promise<SprintRow> {
+    const row: SprintRow = { id: id(), createdAt: now(), ...input };
+    await db.sprints.add(row);
+    return row;
+  },
+  async list(projectId: string, limit = 20): Promise<SprintRow[]> {
+    const rows = await db.sprints.where("projectId").equals(projectId).toArray();
+    rows.sort((a, b) => b.startTs.localeCompare(a.startTs));
+    return rows.slice(0, limit);
+  },
+};
+
+/* --------------------------------- goals -------------------------------- */
+
+const emptyGoal = (projectId: string): GoalRow => ({ projectId, dailyTarget: 0, deadline: "", totalTarget: 0, updatedAt: "" });
+
+export const goals = {
+  async get(projectId: string): Promise<GoalRow> {
+    return (await db.goals.get(projectId)) ?? emptyGoal(projectId);
+  },
+  async set(projectId: string, patch: Partial<Omit<GoalRow, "projectId" | "updatedAt">>): Promise<GoalRow> {
+    const cur = await this.get(projectId);
+    const next: GoalRow = { ...cur, ...patch, projectId, updatedAt: now() };
+    await db.goals.put(next);
+    return next;
   },
 };

@@ -10,6 +10,8 @@ import { ProjectSetup } from "./ProjectSetup.js";
 import { BookView } from "./BookView.js";
 import { ToolsMenu, type ToolState, type ToolActions } from "./ToolsMenu.js";
 import { ExportMenu } from "./ExportMenu.js";
+import { Sprint, hasActiveSprint } from "./Sprint.js";
+import { Stats } from "./Stats.js";
 
 // Excalidraw is heavy — load it only when the storyboard opens
 const StoryboardModal = lazy(() => import("./StoryboardModal.js").then((m) => ({ default: m.StoryboardModal })));
@@ -23,6 +25,8 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
   const [showBook, setShowBook] = useState(false);
   const [showStoryboard, setShowStoryboard] = useState(false);
   const [showCards, setShowCards] = useState(false);
+  const [showSprint, setShowSprint] = useState(() => hasActiveSprint(projectId));
+  const [showStats, setShowStats] = useState(false);
   const [toolState, setToolState] = useState<ToolState | null>(null);
   const toolActionsRef = useRef<ToolActions | null>(null);
   const [navPinned, setNavPinned] = useState(() => localStorage.getItem("incipit-nav-pinned") === "1");
@@ -195,6 +199,20 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
           >
             Book view
           </button>
+          <button
+            onClick={() => setShowSprint(true)}
+            className={`rounded-md border px-3 py-1 text-xs font-medium ${
+              showSprint ? "border-brand text-brand" : "border-line text-dim hover:bg-elevated"
+            }`}
+          >
+            Sprint
+          </button>
+          <button
+            onClick={() => setShowStats(true)}
+            className="rounded-md border border-line px-3 py-1 text-xs font-medium text-dim hover:bg-elevated"
+          >
+            Stats
+          </button>
         </div>
       </header>
 
@@ -335,6 +353,22 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
       )}
 
       {showBook && <BookView project={project} nodes={nodes} onClose={() => setShowBook(false)} onChange={patchProject} />}
+
+      {showSprint && (
+        <Sprint
+          projectId={projectId}
+          liveWords={nodes.reduce((s, n) => s + n.wordCount, 0)}
+          onClose={() => setShowSprint(false)}
+        />
+      )}
+
+      {showStats && (
+        <Stats
+          projectId={projectId}
+          totalWords={nodes.reduce((s, n) => s + n.wordCount, 0)}
+          onClose={() => setShowStats(false)}
+        />
+      )}
 
       {showCards && (
         <SceneCards
