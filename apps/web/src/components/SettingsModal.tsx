@@ -67,8 +67,8 @@ export function SettingsModal({ onClose, onSaved }: { onClose: () => void; onSav
   const field = "w-full rounded-lg border border-line bg-surface2 px-3 py-2 text-sm text-fg outline-none focus:border-brand";
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6" onClick={onClose}>
-      <div className="w-full max-w-md rounded-2xl border border-line bg-surface shadow-xl" onClick={(e) => e.stopPropagation()}>
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60 p-6">
+      <div className="w-full max-w-md rounded-2xl border border-line bg-surface shadow-xl">
         <div className="flex items-center justify-between border-b border-linesoft px-5 py-3">
           <h2 className="font-semibold text-fg">AI engine</h2>
           <button onClick={onClose} className="text-mute hover:text-fg">✕</button>
