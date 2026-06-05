@@ -176,16 +176,41 @@ export async function effectiveConfig() {
   return { provider: e.provider, model: e.model, embedModel: e.embedModel, visionModel: e.visionModel };
 }
 
+const trimTrailingSlash = (url: string) => url.replace(/\/+$/, "");
+const ollamaRootUrl = (baseUrl: string) => trimTrailingSlash(baseUrl).replace(/\/v1$/, "");
+
+function fetchTimeoutSignal(ms = 5000): AbortSignal | undefined {
+  return typeof AbortSignal !== "undefined" && "timeout" in AbortSignal ? AbortSignal.timeout(ms) : undefined;
+}
+
+function endpointPermissionDetail(error: unknown): string | null {
+  const message = String(error).toLowerCase();
+  if (message.includes("not allowed") || message.includes("forbidden") || message.includes("permission") || message.includes("scope")) {
+    return "Endpoint blocked by desktop permissions";
+  }
+  return null;
+}
+
 export async function connectionStatus(): Promise<{ connected: boolean; detail: string }> {
   const e = await effective();
   if (e.provider === "ollama") {
+    const f = (await platformFetch()) ?? fetch;
+    const base = trimTrailingSlash(e.ollamaBaseUrl);
+    const root = ollamaRootUrl(e.ollamaBaseUrl);
+
     try {
-      const f = (await platformFetch()) ?? fetch;
-      const root = e.ollamaBaseUrl.replace(/\/v1\/?$/, "");
-      const res = await f(`${root}/api/tags`, { signal: AbortSignal.timeout(1500) });
-      return res.ok ? { connected: true, detail: "Ollama reachable" } : { connected: false, detail: "Ollama not responding" };
-    } catch {
-      return { connected: false, detail: "Ollama not running" };
+      const res = await f(`${root}/api/tags`, { signal: fetchTimeoutSignal() });
+      if (res.ok) return { connected: true, detail: "Ollama reachable" };
+    } catch (error) {
+      const detail = endpointPermissionDetail(error);
+      if (detail) return { connected: false, detail };
+    }
+
+    try {
+      const res = await f(`${base}/models`, { signal: fetchTimeoutSignal() });
+      return res.ok ? { connected: true, detail: "OpenAI-compatible endpoint reachable" } : { connected: false, detail: "Ollama endpoint not responding" };
+    } catch (error) {
+      return { connected: false, detail: endpointPermissionDetail(error) ?? "Ollama endpoint not reachable" };
     }
   }
   const key = e.provider === "openai" ? e.openaiKey : e.provider === "anthropic" ? e.anthropicKey : e.googleKey;
@@ -196,13 +221,25 @@ export async function connectionStatus(): Promise<{ connected: boolean; detail: 
 
 export async function ollamaModels(): Promise<string[]> {
   const e = await effective();
+  const f = (await platformFetch()) ?? fetch;
+  const base = trimTrailingSlash(e.ollamaBaseUrl);
+  const root = ollamaRootUrl(e.ollamaBaseUrl);
+
   try {
-    const f = (await platformFetch()) ?? fetch;
-    const root = e.ollamaBaseUrl.replace(/\/v1\/?$/, "");
-    const res = await f(`${root}/api/tags`, { signal: AbortSignal.timeout(1500) });
+    const res = await f(`${root}/api/tags`, { signal: fetchTimeoutSignal() });
+    if (res.ok) {
+      const data = (await res.json()) as { models?: { name: string }[] };
+      return (data.models ?? []).map((m) => m.name).sort();
+    }
+  } catch {
+    // Try OpenAI-compatible model discovery below.
+  }
+
+  try {
+    const res = await f(`${base}/models`, { signal: fetchTimeoutSignal() });
     if (!res.ok) return [];
-    const data = (await res.json()) as { models?: { name: string }[] };
-    return (data.models ?? []).map((m) => m.name).sort();
+    const data = (await res.json()) as { data?: { id: string }[] };
+    return (data.data ?? []).map((m) => m.id).sort();
   } catch {
     return [];
   }
