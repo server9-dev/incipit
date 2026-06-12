@@ -68,12 +68,27 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
     if (!patch) return;
     nodePending.current.delete(id);
     const cur = (await api.updateNode(id, patch).catch(() => null)) as StoryNode | null;
-    if (cur) setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, wordCount: cur.wordCount } : n)));
+    // Merge the saved patch back into the in-memory node in one batch — including
+    // any deferred `content`/`ink` (see patchNodeLocal) — plus the fresh wordCount,
+    // so re-selecting the node shows the current text. This is the only place the
+    // manuscript tree rebuilds while typing: once per 600ms pause, not per keystroke.
+    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, ...patch, ...(cur ? { wordCount: cur.wordCount } : {}) } : n)));
     if (nodePending.current.size === 0) setSaving(false);
   }
 
   function patchNodeLocal(id: string, patch: Partial<StoryNode>) {
-    setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, ...patch } : n)));
+    // `content`/`ink` change on every keystroke/pen stroke. Writing them into
+    // `nodes` state would rebuild the whole manuscript tree (buildTree is memoized
+    // on `nodes`) on every keystroke — that's the typing stutter. The editor is
+    // uncontrolled and keyed by node id, so it doesn't need them live; flushNode
+    // merges them back after the debounce. Only light display fields (title, pov,
+    // synopsis, epigraph) update immediately so the tree/header stay in sync.
+    const live: Partial<StoryNode> = { ...patch };
+    delete live.content;
+    delete live.ink;
+    if (Object.keys(live).length) {
+      setNodes((prev) => prev.map((n) => (n.id === id ? { ...n, ...live } : n)));
+    }
     nodePending.current.set(id, { ...nodePending.current.get(id), ...patch });
     const timers = nodeTimers.current;
     if (timers.has(id)) clearTimeout(timers.get(id)!);
@@ -285,6 +300,7 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
               onTitleChange={(v) => patchNodeLocal(selected.id, { title: v })}
               onPovChange={(v) => patchNodeLocal(selected.id, { pov: v })}
               onEpigraphChange={(v) => patchNodeLocal(selected.id, { epigraph: v })}
+              onChapterArt={(patch) => patchNodeLocal(selected.id, patch)}
               onInkSave={(v) => patchNodeLocal(selected.id, { ink: v })}
               onForceSave={() => void flushNode(selected.id)}
               onToolState={setToolState}

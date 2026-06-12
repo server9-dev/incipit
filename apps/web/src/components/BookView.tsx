@@ -1,6 +1,6 @@
 import { useLayoutEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import type { Project, StoryNode, ProjectFormat, BookFont, ChapterStyle, FolioPos } from "@incipit/shared";
-import { parseFormat, FORMAT_THEMES, BOOK_FONTS, ORNAMENTS, FOLIO_OPTIONS } from "@incipit/shared";
+import { parseFormat, FORMAT_THEMES, BOOK_FONTS, ORNAMENTS, FOLIO_OPTIONS, chapterArtHtml } from "@incipit/shared";
 import { buildEpub, downloadBlob } from "../epub.js";
 
 /* Standard US trim sizes (inches). */
@@ -18,7 +18,7 @@ const MARGIN = { top: 0.75, bottom: 0.85, side: 0.7 }; // inches
 const CHAPTER_TOP = 1.1; // inches of space above a chapter title
 
 type Item =
-  | { kind: "chapter" | "part"; title: string; pov?: string; epigraph?: string; num?: number }
+  | { kind: "chapter" | "part"; title: string; pov?: string; epigraph?: string; num?: number; art?: string; artW?: number; artRatio?: number }
   | { kind: "scene-break" }
   | { kind: "epigraph"; text: string }
   | { kind: "block"; html: string; first?: boolean; cont?: boolean; splitHead?: boolean }
@@ -77,7 +77,7 @@ function buildItems(nodes: StoryNode[]): Item[] {
       node.children.forEach(walk);
     } else if (node.type === "chapter") {
       chapNum += 1;
-      items.push({ kind: "chapter", title: node.title, pov: node.pov, epigraph: node.epigraph, num: chapNum });
+      items.push({ kind: "chapter", title: node.title, pov: node.pov, epigraph: node.epigraph, num: chapNum, art: node.chapterArt, artW: node.chapterArtWidth, artRatio: node.chapterArtRatio });
       let first = true;
       node.children.forEach((s, i) => {
         if (i > 0) items.push({ kind: "scene-break" });
@@ -87,7 +87,7 @@ function buildItems(nodes: StoryNode[]): Item[] {
       });
     } else {
       // standalone scene / poem (short story, poems): its own titled page
-      items.push({ kind: "chapter", title: node.title, pov: node.pov, epigraph: node.epigraph });
+      items.push({ kind: "chapter", title: node.title, pov: node.pov, epigraph: node.epigraph, art: node.chapterArt, artW: node.chapterArtWidth, artRatio: node.chapterArtRatio });
       pushBody(blockItems(node.content), true);
     }
   };
@@ -120,7 +120,11 @@ function itemHtml(item: Item, chapterTopPx: number, fmt: ProjectFormat): string 
       : "";
   const pov = item.pov ? `<div class="book-pov">${esc(item.pov)}</div>` : "";
   const epi = item.epigraph ? `<div class="book-epigraph">${esc(item.epigraph)}</div>` : "";
-  return `<div style="padding-top:${chapterTopPx}px">${num}<div class="${cls}">${esc(item.title)}</div>${pov}${epi}</div>`;
+  const art =
+    item.kind === "chapter"
+      ? chapterArtHtml({ chapterArt: item.art, chapterArtWidth: item.artW, chapterArtRatio: item.artRatio })
+      : "";
+  return `<div style="padding-top:${chapterTopPx}px">${art}${num}<div class="${cls}">${esc(item.title)}</div>${pov}${epi}</div>`;
 }
 
 /** A plain (no inline markup) paragraph we can break mid-way across a page. */

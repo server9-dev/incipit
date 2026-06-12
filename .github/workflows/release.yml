@@ -67,7 +67,17 @@ jobs:
           tauriScript: pnpm tauri
           tagName: ${{ github.ref_name }}
           releaseName: "Incipit ${{ github.ref_name }}"
-          releaseBody: "Local-first fiction writing studio. Download the installer for your platform below."
+          releaseBody: |
+            Local-first fiction writing studio. Download the installer for your platform:
+
+            | Your computer | Download the file ending in |
+            | --- | --- |
+            | **macOS** (Apple Silicon **and** Intel) | `.dmg` |
+            | **Windows** | `.exe` (or `.msi`) |
+            | **Linux** | `.AppImage` (or `.deb`) |
+
+            **macOS first launch** (not notarized yet): right-click the app → **Open**, or run `xattr -dr com.apple.quarantine /Applications/Incipit.app`.
+            **Windows first launch:** SmartScreen → **More info → Run anyway**.
           releaseDraft: false
           prerelease: false
           args: ${{ matrix.args }}

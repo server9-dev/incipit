@@ -25,12 +25,17 @@ export async function loadDictionary(): Promise<Set<string>> {
 }
 export const dictionaryReady = () => wordSet !== null;
 
+// Cached so the spellcheck decorator (runs on every keystroke) doesn't re-parse
+// localStorage each time. Invalidated whenever a custom word is added.
+let customWords: Set<string> | null = null;
 export function getCustomWords(): Set<string> {
+  if (customWords) return customWords;
   try {
-    return new Set(JSON.parse(localStorage.getItem(DICT_KEY) || "[]") as string[]);
+    customWords = new Set(JSON.parse(localStorage.getItem(DICT_KEY) || "[]") as string[]);
   } catch {
-    return new Set();
+    customWords = new Set();
   }
+  return customWords;
 }
 export function addCustomWord(word: string) {
   const s = getCustomWords();

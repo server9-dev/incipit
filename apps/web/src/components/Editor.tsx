@@ -7,7 +7,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import { typographyExtension } from "../typography.js";
-import { REFINE_LABELS, parseFormat, BOOK_FONTS, type Project, type StoryNode, type Entity, type RefineAction } from "@incipit/shared";
+import { REFINE_LABELS, parseFormat, BOOK_FONTS, CHAPTER_ORNAMENTS, isOrnamentMarkup, type Project, type StoryNode, type Entity, type RefineAction } from "@incipit/shared";
 import { transcribe as transcribeApi } from "../api.js";
 import { draftStream, refineStream } from "../clientai.js";
 import { SuggestionReview } from "./SuggestionReview.js";
@@ -79,6 +79,47 @@ function pickImage(editor: TiptapEditor) {
   input.click();
 }
 
+/* ---- chapter art (decorative headpiece above a chapter title) ---- */
+/** Load an uploaded image, downscale to a sane max size, and return a data URL
+ *  plus its aspect ratio (so book-view pagination can reserve height pre-decode). */
+async function loadChapterArt(file: File): Promise<{ art: string; ratio: number } | null> {
+  if (!file.type.startsWith("image/")) return null;
+  const dataUrl = await fileToDataUrl(file);
+  const img = new globalThis.Image();
+  await new Promise<void>((res, rej) => {
+    img.onload = () => res();
+    img.onerror = rej;
+    img.src = dataUrl;
+  });
+  const ratio = img.naturalHeight ? img.naturalWidth / img.naturalHeight : 0;
+  const MAX = 1400; // longest side
+  const scale = Math.min(1, MAX / Math.max(img.naturalWidth, img.naturalHeight || 1));
+  // SVG uploads scale losslessly — keep them as-is; otherwise downscale via canvas.
+  if (file.type === "image/svg+xml" || scale >= 1) return { art: dataUrl, ratio };
+  const canvas = document.createElement("canvas");
+  canvas.width = Math.round(img.naturalWidth * scale);
+  canvas.height = Math.round(img.naturalHeight * scale);
+  const ctx = canvas.getContext("2d");
+  if (!ctx) return { art: dataUrl, ratio };
+  ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+  // preserve alpha for PNGs; JPEG (smaller) for opaque photos
+  const out = file.type === "image/png" ? canvas.toDataURL("image/png") : canvas.toDataURL("image/jpeg", 0.85);
+  return { art: out, ratio };
+}
+
+function pickChapterArt(onPick: (r: { art: string; ratio: number }) => void) {
+  const input = document.createElement("input");
+  input.type = "file";
+  input.accept = "image/*";
+  input.onchange = async () => {
+    const f = input.files?.[0];
+    if (!f) return;
+    const r = await loadChapterArt(f);
+    if (r) onPick(r);
+  };
+  input.click();
+}
+
 type Paper = { label: string; bg: string; fg: string };
 const PAPERS: Record<string, Paper> = {
   white: { label: "White", bg: "#ffffff", fg: "#1a1a1a" },
@@ -98,6 +139,97 @@ type Proposal = {
   block: boolean; // insert as paragraphs vs inline
 };
 
+/** Chapter-art controls for the setup panel: upload your own or pick a built-in
+ *  ornament, preview it, resize it, or remove it. */
+function ChapterArtRow({ node, onChapterArt }: { node: StoryNode; onChapterArt: (patch: Partial<StoryNode>) => void }) {
+  const [palette, setPalette] = useState(false);
+  const art = node.chapterArt || "";
+  const width = node.chapterArtWidth || 60;
+  const isSvg = art ? isOrnamentMarkup(art) : false;
+
+  const setArt = (a: string, ratio: number) => {
+    onChapterArt({ chapterArt: a, chapterArtRatio: ratio });
+    setPalette(false);
+  };
+
+  return (
+    <div className="mt-1.5 border-t border-linesoft pt-1.5">
+      <div className="flex flex-wrap items-center gap-2">
+        <span className="text-xs text-mute" title="A decorative image or ornament shown above the chapter title in book view & export">
+          Chapter art
+        </span>
+        {!art && (
+          <>
+            <button
+              type="button"
+              onClick={() => pickChapterArt(({ art: a, ratio }) => setArt(a, ratio))}
+              className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated"
+            >
+              Upload image…
+            </button>
+            <button
+              type="button"
+              onClick={() => setPalette((v) => !v)}
+              className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated"
+            >
+              Ornaments
+            </button>
+          </>
+        )}
+        {art && (
+          <>
+            <div className="flex min-w-0 flex-1 items-center justify-center rounded-md bg-white px-2 py-1.5 text-[#1a1a1a]">
+              {isSvg ? (
+                <div className="chapter-art-svg" style={{ width: `${width}%`, maxHeight: 40 }} dangerouslySetInnerHTML={{ __html: art }} />
+              ) : (
+                <img src={art} alt="" style={{ width: `${width}%`, maxHeight: 56, objectFit: "contain" }} />
+              )}
+            </div>
+            <label className="flex items-center gap-1 text-xs text-mute" title="Art width (% of the text block)">
+              <input
+                type="range"
+                min={15}
+                max={100}
+                value={width}
+                onChange={(e) => onChapterArt({ chapterArtWidth: Number(e.target.value) })}
+                className="w-24"
+              />
+              <span className="w-8 tabular-nums text-right">{width}%</span>
+            </label>
+            <button type="button" onClick={() => pickChapterArt(({ art: a, ratio }) => setArt(a, ratio))} className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated">
+              Replace
+            </button>
+            <button type="button" onClick={() => setPalette((v) => !v)} className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated">
+              Ornaments
+            </button>
+            <button
+              type="button"
+              onClick={() => onChapterArt({ chapterArt: "", chapterArtRatio: 0 })}
+              className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated"
+            >
+              Remove
+            </button>
+          </>
+        )}
+      </div>
+      {palette && (
+        <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-md bg-surface p-1.5 sm:grid-cols-4">
+          {CHAPTER_ORNAMENTS.map((o) => (
+            <button
+              key={o.key}
+              type="button"
+              title={o.label}
+              onClick={() => setArt(o.svg, 0)}
+              className="chapter-art-svg flex items-center justify-center rounded bg-white px-2 py-2 text-[#1a1a1a] hover:ring-2 hover:ring-brand"
+              dangerouslySetInnerHTML={{ __html: o.svg }}
+            />
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function Editor({
   node,
   project,
@@ -108,6 +240,7 @@ export function Editor({
   onTitleChange,
   onPovChange,
   onEpigraphChange,
+  onChapterArt,
   onInkSave,
   onForceSave,
   onToolState,
@@ -123,6 +256,7 @@ export function Editor({
   onTitleChange: (v: string) => void;
   onPovChange: (v: string) => void;
   onEpigraphChange: (v: string) => void;
+  onChapterArt: (patch: Partial<StoryNode>) => void;
   onInkSave: (ink: string) => void;
   onForceSave: () => void;
   onToolState: (s: ToolState | null) => void;
@@ -538,6 +672,7 @@ export function Editor({
             title="A quote or aside shown before the prose in book view & export"
           />
         </div>
+        {node.type !== "folder" && <ChapterArtRow node={node} onChapterArt={onChapterArt} />}
       </div>
 
       {proposal ? (

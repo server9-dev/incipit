@@ -57,6 +57,14 @@ export const nodeSchema = z.object({
   pov: z.string().default(""),
   /** epigraph — a quote/aside shown before the prose (chapter or scene opener) */
   epigraph: z.string().default(""),
+  /** decorative chapter art shown above the title in book view & export:
+   *  either raw inline `<svg…>` ornament markup or an uploaded image data URL */
+  chapterArt: z.string().default(""),
+  /** chapter-art display width as a percent of the text block (15–100) */
+  chapterArtWidth: z.number().default(60),
+  /** intrinsic width/height of uploaded art, so book-view pagination can
+   *  reserve its height before the image decodes (0 = unknown / inline SVG) */
+  chapterArtRatio: z.number().default(0),
   /** preserved handwriting: JSON {w,h,strokes:[[{x,y}]]} of the original ink */
   ink: z.string().default(""),
   /** scene-card outline (JSON): alpha point, subplots, plot cause/effect, story why/realization */

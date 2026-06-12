@@ -1,5 +1,5 @@
 import JSZip from "jszip";
-import { parseFormat, BOOK_FONTS, type Project, type StoryNode, type ProjectFormat } from "@incipit/shared";
+import { parseFormat, BOOK_FONTS, chapterArtHtml, type Project, type StoryNode, type ProjectFormat } from "@incipit/shared";
 import { savePlatform } from "./save.js";
 
 type TreeItem = StoryNode & { children: TreeItem[] };
@@ -60,13 +60,15 @@ function buildDocs(nodes: StoryNode[], fmt: ProjectFormat): Doc[] {
       node.children.forEach(walk);
     } else if (node.type === "chapter") {
       chap += 1;
+      const art = chapterArtHtml(node);
       const num = fmt.chapterStyle === "numbered" ? `<p class="chapnum">${chap}</p>` : "";
       const scenes = node.children
         .map((s, i) => (i > 0 ? `<hr class="scene"/>` : "") + toXhtml(s.content))
         .join("\n");
-      add(node.title, `${num}<h1>${esc(node.title)}</h1>\n${drop(scenes)}`, "chap");
+      add(node.title, `${art}${num}<h1>${esc(node.title)}</h1>\n${drop(scenes)}`, "chap");
     } else {
-      add(node.title, `<h1>${esc(node.title)}</h1>\n${drop(toXhtml(node.content))}`, "chap");
+      const art = chapterArtHtml(node);
+      add(node.title, `${art}<h1>${esc(node.title)}</h1>\n${drop(toXhtml(node.content))}`, "chap");
     }
   };
   buildTree(nodes).forEach(walk);
@@ -84,6 +86,9 @@ function styleFor(fmt: ProjectFormat): string {
 p.first::first-letter { float: left; font-size: 3em; line-height: 0.72; padding: 0.05em 0.08em 0 0; font-weight: 600; font-family: ${head}; }`
     : "";
   return `body { font-family: ${body}; line-height: 1.4; margin: 1em; }
+.chapter-art { display: block; margin: 1em auto 1.2em; max-width: 100%; height: auto; }
+.chapter-art-svg { color: inherit; }
+.chapter-art-svg svg { display: block; width: 100%; height: auto; }
 h1 { font-family: ${head}; text-align: ${align}; margin: 2em 0 1.2em; font-size: 1.5em; ${smallcaps} }
 h1.part { font-size: 1.9em; }
 .chapnum { font-family: ${head}; text-align: center; font-size: 2.4em; font-weight: 300; color: #9aa3ad; line-height: 1; margin: 1.5em 0 0; }

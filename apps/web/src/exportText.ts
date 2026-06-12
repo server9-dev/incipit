@@ -1,4 +1,5 @@
 import type { Project, StoryNode } from "@incipit/shared";
+import { chapterArtHtml } from "@incipit/shared";
 import { savePlatform } from "./save.js";
 
 type TreeItem = StoryNode & { children: TreeItem[] };
@@ -120,6 +121,8 @@ export function manuscriptToHtml(project: Project, nodes: StoryNode[]): string {
   const walk = (node: TreeItem) => {
     if (node.type === "folder") body.push(`<h1 class="part">${escHtml(node.title)}</h1>`);
     else {
+      const art = chapterArtHtml(node);
+      if (art) body.push(art);
       body.push(`<h2 class="chapter">${escHtml(node.title)}</h2>`);
       if (node.pov) body.push(`<p class="pov">— ${escHtml(node.pov)}</p>`);
       if (node.epigraph) body.push(`<blockquote class="epigraph">${escHtml(node.epigraph)}</blockquote>`);
@@ -142,6 +145,9 @@ export function manuscriptToHtml(project: Project, nodes: StoryNode[]): string {
   .scene p { text-indent: 1.5em; margin: 0; text-align: justify; }
   .scene p:first-child { text-indent: 0; }
   img { max-width: 100%; height: auto; display: block; margin: 1em auto; }
+  .chapter-art { display: block; margin: 2rem auto 0.5rem; max-width: 100%; height: auto; }
+  .chapter-art-svg { color: inherit; }
+  .chapter-art-svg svg { display: block; width: 100%; height: auto; }
 </style></head>
 <body>
 ${body.join("\n")}
