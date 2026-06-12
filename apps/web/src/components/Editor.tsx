@@ -241,7 +241,7 @@ export function Editor({
   onPovChange,
   onEpigraphChange,
   onChapterArt,
-  showChapterArt,
+  chapterArtNode,
   onInkSave,
   onForceSave,
   onToolState,
@@ -258,7 +258,7 @@ export function Editor({
   onPovChange: (v: string) => void;
   onEpigraphChange: (v: string) => void;
   onChapterArt: (patch: Partial<StoryNode>) => void;
-  showChapterArt: boolean;
+  chapterArtNode: StoryNode | null;
   onInkSave: (ink: string) => void;
   onForceSave: () => void;
   onToolState: (s: ToolState | null) => void;
@@ -674,7 +674,7 @@ export function Editor({
             title="A quote or aside shown before the prose in book view & export"
           />
         </div>
-        {showChapterArt && <ChapterArtRow node={node} onChapterArt={onChapterArt} />}
+        {chapterArtNode && <ChapterArtRow node={chapterArtNode} onChapterArt={onChapterArt} />}
       </div>
 
       {proposal ? (

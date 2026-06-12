@@ -300,11 +300,18 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
               onTitleChange={(v) => patchNodeLocal(selected.id, { title: v })}
               onPovChange={(v) => patchNodeLocal(selected.id, { pov: v })}
               onEpigraphChange={(v) => patchNodeLocal(selected.id, { epigraph: v })}
-              onChapterArt={(patch) => patchNodeLocal(selected.id, patch)}
-              // art only renders where book view draws a title for this node — a
-              // standalone scene/poem (its own titled page), not one nested in a
-              // chapter (the chapter's own art covers that, set on the chapter page)
-              showChapterArt={nodes.find((n) => n.id === selected.parentId)?.type !== "chapter"}
+              // Chapter art lives on whatever node book view draws a title for:
+              // a scene nested in a chapter targets that chapter (so it renders and
+              // is shared by every scene in the chapter); a standalone scene/poem
+              // (its own titled page) targets itself.
+              chapterArtNode={(() => {
+                const parent = nodes.find((n) => n.id === selected.parentId);
+                return parent?.type === "chapter" ? parent : selected;
+              })()}
+              onChapterArt={(patch) => {
+                const parent = nodes.find((n) => n.id === selected.parentId);
+                patchNodeLocal(parent?.type === "chapter" ? parent.id : selected.id, patch);
+              }}
               onInkSave={(v) => patchNodeLocal(selected.id, { ink: v })}
               onForceSave={() => void flushNode(selected.id)}
               onToolState={setToolState}
