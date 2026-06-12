@@ -13,6 +13,8 @@ export type ToolState = {
   whisperRecording: boolean;
   whisperBusy: boolean;
   whisperSupported: boolean;
+  reading: boolean;
+  ttsSupported: boolean;
 };
 
 export type ToolActions = {
@@ -21,6 +23,7 @@ export type ToolActions = {
   handwrite: () => void;
   dictate: () => void;
   whisper: () => void;
+  readAloud: () => void;
 };
 
 const REFINE_ORDER: RefineAction[] = [
@@ -133,6 +136,14 @@ export function ToolsMenu({ state, actionsRef }: { state: ToolState | null; acti
                 title="Private on-device dictation — record a passage and transcribe it locally; audio never leaves your device."
                 disabled={!ready || s?.whisperBusy}
                 onClick={() => act()?.whisper()}
+              />
+            )}
+            {s?.ttsSupported && (
+              <Btn
+                label={s?.reading ? "■ Stop reading" : "🔊 Read aloud"}
+                title="Read the highlighted text aloud (or the whole scene if nothing is selected) using your device's voice."
+                disabled={!ready}
+                onClick={() => act()?.readAloud()}
               />
             )}
           </div>

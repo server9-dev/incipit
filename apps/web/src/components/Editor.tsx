@@ -16,6 +16,7 @@ import { initialHtml, textToHtml, textToInlineHtml } from "../richtext.js";
 import { LOCAL_REFINE } from "../localcraft.js";
 import { useDictation } from "../useDictation.js";
 import { useWhisperDictation } from "../whisperDictation.js";
+import { useReadAloud } from "../useReadAloud.js";
 import { useLiveDictation } from "../useLiveDictation.js";
 import {
   spellcheckExtension,
@@ -473,6 +474,14 @@ export function Editor({
   const dictation = useDictation(insertSpoken);
   const live = useLiveDictation(insertSpoken);
   const whisper = useWhisperDictation(insertSpoken);
+  const readAloud = useReadAloud();
+  // Read the highlighted selection aloud (or the whole scene if nothing is selected).
+  const runReadAloud = () => {
+    if (!editor) return;
+    const { from, to } = editor.state.selection;
+    const text = from !== to ? editor.state.doc.textBetween(from, to, "\n", " ") : editor.getText();
+    void readAloud.toggle(text);
+  };
   // Web Speech is the live path in a real browser; in the desktop WebView (where
   // it has no backend) fall back to on-device streaming Whisper for "Dictate".
   const liveMode = !dictation.supported && live.supported;
@@ -617,6 +626,7 @@ export function Editor({
       handwrite: () => setHandwriting(true),
       dictate: liveMode ? live.toggle : dictation.toggle,
       whisper: whisper.toggle,
+      readAloud: runReadAloud,
     };
   });
 
@@ -635,8 +645,10 @@ export function Editor({
       whisperRecording: whisper.recording,
       whisperBusy: whisper.busy,
       whisperSupported: whisper.supported,
+      reading: readAloud.reading,
+      ttsSupported: readAloud.supported,
     });
-  }, [busy, connected, hasContent, node.ink, isVerse, gen, dictation.active, dictation.supported, live.active, live.supported, whisper.recording, whisper.busy, whisper.supported, onToolState]);
+  }, [busy, connected, hasContent, node.ink, isVerse, gen, dictation.active, dictation.supported, live.active, live.supported, whisper.recording, whisper.busy, whisper.supported, readAloud.reading, readAloud.supported, onToolState]);
 
   useEffect(
     () => () => {
