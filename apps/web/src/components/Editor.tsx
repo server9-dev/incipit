@@ -7,7 +7,7 @@ import TextAlign from "@tiptap/extension-text-align";
 import Placeholder from "@tiptap/extension-placeholder";
 import Image from "@tiptap/extension-image";
 import { typographyExtension } from "../typography.js";
-import { REFINE_LABELS, parseFormat, BOOK_FONTS, CHAPTER_ORNAMENTS, isOrnamentMarkup, type Project, type StoryNode, type Entity, type RefineAction } from "@incipit/shared";
+import { REFINE_LABELS, parseFormat, BOOK_FONTS, CHAPTER_ORNAMENTS, isOrnamentMarkup, chapterArtHtml, type Project, type StoryNode, type Entity, type RefineAction } from "@incipit/shared";
 import { transcribe as transcribeApi } from "../api.js";
 import { draftStream, refineStream } from "../clientai.js";
 import { SuggestionReview } from "./SuggestionReview.js";
@@ -242,6 +242,7 @@ export function Editor({
   onEpigraphChange,
   onChapterArt,
   chapterArtNode,
+  chapterHeading,
   onInkSave,
   onForceSave,
   onToolState,
@@ -259,6 +260,9 @@ export function Editor({
   onEpigraphChange: (v: string) => void;
   onChapterArt: (patch: Partial<StoryNode>) => void;
   chapterArtNode: StoryNode | null;
+  /** chapter heading to show atop the prose in manuscript view (art + number +
+   *  title), mirroring book view — non-null only when this page opens a chapter */
+  chapterHeading: { node: StoryNode; num: number | null } | null;
   onInkSave: (ink: string) => void;
   onForceSave: () => void;
   onToolState: (s: ToolState | null) => void;
@@ -747,6 +751,19 @@ export function Editor({
               } as CSSProperties
             }
           >
+            {manuscript && chapterHeading && (
+              <div className="ms-chapter-head">
+                {chapterHeading.node.chapterArt && (
+                  <div dangerouslySetInnerHTML={{ __html: chapterArtHtml(chapterHeading.node) }} />
+                )}
+                {format.chapterStyle === "numbered" && chapterHeading.num != null && (
+                  <div className="book-chap-num">{chapterHeading.num}</div>
+                )}
+                <div className="book-chap-title">{chapterHeading.node.title}</div>
+                {chapterHeading.node.pov && <div className="book-pov">{chapterHeading.node.pov}</div>}
+                {chapterHeading.node.epigraph && <div className="book-epigraph">{chapterHeading.node.epigraph}</div>}
+              </div>
+            )}
             <EditorContent editor={editor} className="h-full" />
           </div>
           {spellMenu && (

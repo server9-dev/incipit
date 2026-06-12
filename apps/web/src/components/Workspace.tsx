@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useRef, useState } from "react";
+import { lazy, Suspense, useEffect, useMemo, useRef, useState } from "react";
 import type { Project, StoryNode, Entity, NodeType, EntityType } from "@incipit/shared";
 import * as api from "../api.js";
 import { ManuscriptTree } from "./ManuscriptTree.js";
@@ -56,6 +56,39 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
   }, [projectId]);
 
   const selected = nodes.find((n) => n.id === selectedId) ?? null;
+
+  /* Chapter numbers in document (tree) order — so Manuscript view can show the
+     same "Chapter N" heading as Book view above the scene that opens a chapter. */
+  const chapterNums = useMemo(() => {
+    const kids = new Map<string, StoryNode[]>();
+    for (const n of nodes) {
+      const k = n.parentId ?? "__root";
+      (kids.get(k) ?? kids.set(k, []).get(k)!).push(n);
+    }
+    for (const arr of kids.values()) arr.sort((a, b) => a.order - b.order);
+    const nums = new Map<string, number>();
+    let c = 0;
+    const walk = (key: string) => {
+      for (const n of kids.get(key) ?? []) {
+        if (n.type === "chapter") nums.set(n.id, (c += 1));
+        walk(n.id);
+      }
+    };
+    walk("__root");
+    return nums;
+  }, [nodes]);
+
+  /* The chapter heading to render atop the prose in Manuscript view: shown only
+     on the page that opens a chapter (its first scene) or on a standalone page. */
+  const chapterHeading = (() => {
+    if (!selected || (selected.type !== "scene" && selected.type !== "poem")) return null;
+    const parent = nodes.find((n) => n.id === selected.parentId);
+    if (parent?.type === "chapter") {
+      const firstScene = nodes.filter((n) => n.parentId === parent.id).sort((a, b) => a.order - b.order)[0];
+      return firstScene?.id === selected.id ? { node: parent, num: chapterNums.get(parent.id) ?? null } : null;
+    }
+    return { node: selected, num: null }; // standalone scene/poem → its own titled page
+  })();
 
   /* ----- node editing with debounced, patch-accumulating persistence ----- */
   async function flushNode(id: string) {
@@ -312,6 +345,7 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
                 const parent = nodes.find((n) => n.id === selected.parentId);
                 patchNodeLocal(parent?.type === "chapter" ? parent.id : selected.id, patch);
               }}
+              chapterHeading={chapterHeading}
               onInkSave={(v) => patchNodeLocal(selected.id, { ink: v })}
               onForceSave={() => void flushNode(selected.id)}
               onToolState={setToolState}

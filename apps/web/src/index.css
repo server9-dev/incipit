@@ -233,6 +233,20 @@ body {
   width: 100%;
   height: auto;
 }
+/* chapter heading shown atop the prose in inline Manuscript view */
+.ms-chapter-head {
+  padding: 2rem 2rem 0.5rem;
+}
+.ms-chapter-head .chapter-art {
+  margin-bottom: 1.1em;
+}
+.manuscript-surface.chap-left .ms-chapter-head .book-chap-title {
+  text-align: left;
+}
+.manuscript-surface.chap-smallcaps .ms-chapter-head .book-chap-title {
+  font-variant: small-caps;
+  letter-spacing: 0.06em;
+}
 .book-part-title {
   text-align: center;
   font-size: 1.9em;
