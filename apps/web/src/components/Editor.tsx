@@ -139,13 +139,17 @@ type Proposal = {
   block: boolean; // insert as paragraphs vs inline
 };
 
-/** Chapter-art controls for the setup panel: upload your own or pick a built-in
- *  ornament, preview it, resize it, or remove it. */
-function ChapterArtRow({ node, onChapterArt }: { node: StoryNode; onChapterArt: (patch: Partial<StoryNode>) => void }) {
+/** Chapter-art controls: upload your own or pick a built-in ornament, preview it,
+ *  resize it, or remove it. Shown on the chapter page and on standalone scene/poem
+ *  pages — i.e. wherever book view renders a title the art can sit above. */
+export function ChapterArtRow({ node, onChapterArt }: { node: StoryNode; onChapterArt: (patch: Partial<StoryNode>) => void }) {
   const [palette, setPalette] = useState(false);
   const art = node.chapterArt || "";
   const width = node.chapterArtWidth || 60;
   const isSvg = art ? isOrnamentMarkup(art) : false;
+  // ornaments draw in `currentColor`; force a dark ink so they're visible on the
+  // white swatch/preview (the surrounding UI is a dark theme → would render grey)
+  const inkOnWhite = { color: "#1a1a1a" } as const;
 
   const setArt = (a: string, ratio: number) => {
     onChapterArt({ chapterArt: a, chapterArtRatio: ratio });
@@ -153,74 +157,70 @@ function ChapterArtRow({ node, onChapterArt }: { node: StoryNode; onChapterArt: 
   };
 
   return (
-    <div className="mt-1.5 border-t border-linesoft pt-1.5">
+    <div className="mt-2 border-t border-linesoft pt-2">
       <div className="flex flex-wrap items-center gap-2">
-        <span className="text-xs text-mute" title="A decorative image or ornament shown above the chapter title in book view & export">
+        <span className="text-xs font-medium text-dim" title="A decorative image or ornament shown above the chapter title in book view & export">
           Chapter art
         </span>
-        {!art && (
-          <>
-            <button
-              type="button"
-              onClick={() => pickChapterArt(({ art: a, ratio }) => setArt(a, ratio))}
-              className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated"
-            >
-              Upload image…
-            </button>
-            <button
-              type="button"
-              onClick={() => setPalette((v) => !v)}
-              className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated"
-            >
-              Ornaments
-            </button>
-          </>
-        )}
+        <button
+          type="button"
+          onClick={() => pickChapterArt(({ art: a, ratio }) => setArt(a, ratio))}
+          className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated"
+        >
+          {art ? "Replace image…" : "Upload image…"}
+        </button>
+        <button
+          type="button"
+          onClick={() => setPalette((v) => !v)}
+          className={`rounded-md px-2 py-1 text-xs hover:bg-elevated ${palette ? "bg-elevated text-fg" : "bg-surface text-dim"}`}
+        >
+          Ornaments
+        </button>
         {art && (
-          <>
-            <div className="flex min-w-0 flex-1 items-center justify-center rounded-md bg-white px-2 py-1.5 text-[#1a1a1a]">
-              {isSvg ? (
-                <div className="chapter-art-svg" style={{ width: `${width}%`, maxHeight: 40 }} dangerouslySetInnerHTML={{ __html: art }} />
-              ) : (
-                <img src={art} alt="" style={{ width: `${width}%`, maxHeight: 56, objectFit: "contain" }} />
-              )}
-            </div>
-            <label className="flex items-center gap-1 text-xs text-mute" title="Art width (% of the text block)">
-              <input
-                type="range"
-                min={15}
-                max={100}
-                value={width}
-                onChange={(e) => onChapterArt({ chapterArtWidth: Number(e.target.value) })}
-                className="w-24"
-              />
-              <span className="w-8 tabular-nums text-right">{width}%</span>
-            </label>
-            <button type="button" onClick={() => pickChapterArt(({ art: a, ratio }) => setArt(a, ratio))} className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated">
-              Replace
-            </button>
-            <button type="button" onClick={() => setPalette((v) => !v)} className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated">
-              Ornaments
-            </button>
-            <button
-              type="button"
-              onClick={() => onChapterArt({ chapterArt: "", chapterArtRatio: 0 })}
-              className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated"
-            >
-              Remove
-            </button>
-          </>
+          <button
+            type="button"
+            onClick={() => onChapterArt({ chapterArt: "", chapterArtRatio: 0 })}
+            className="rounded-md bg-surface px-2 py-1 text-xs text-dim hover:bg-elevated"
+          >
+            Remove
+          </button>
         )}
       </div>
+
+      {art && (
+        <div className="mt-2 flex items-center gap-3">
+          <div className="flex min-h-[72px] min-w-0 flex-1 items-center justify-center rounded-md bg-white px-3 py-3" style={inkOnWhite}>
+            {isSvg ? (
+              <div className="chapter-art-svg w-full" style={{ maxWidth: `${width}%` }} dangerouslySetInnerHTML={{ __html: art }} />
+            ) : (
+              <img src={art} alt="" className="object-contain" style={{ maxWidth: `${width}%`, maxHeight: 160 }} />
+            )}
+          </div>
+          <label className="flex shrink-0 flex-col items-center gap-1 text-[11px] text-mute" title="Art width (% of the text block)">
+            <span className="tabular-nums">{width}%</span>
+            <input
+              type="range"
+              min={15}
+              max={100}
+              value={width}
+              onChange={(e) => onChapterArt({ chapterArtWidth: Number(e.target.value) })}
+              className="w-28"
+            />
+            <span>width</span>
+          </label>
+        </div>
+      )}
+
       {palette && (
-        <div className="mt-1.5 grid grid-cols-2 gap-1.5 rounded-md bg-surface p-1.5 sm:grid-cols-4">
+        <div className="mt-2 grid max-h-72 grid-cols-2 gap-2 overflow-y-auto rounded-md bg-surface p-2 sm:grid-cols-3">
           {CHAPTER_ORNAMENTS.map((o) => (
             <button
               key={o.key}
               type="button"
               title={o.label}
               onClick={() => setArt(o.svg, 0)}
-              className="chapter-art-svg flex items-center justify-center rounded bg-white px-2 py-2 text-[#1a1a1a] hover:ring-2 hover:ring-brand"
+              style={inkOnWhite}
+              className="chapter-art-svg flex min-h-[56px] items-center justify-center rounded bg-white px-3 py-3 hover:ring-2 hover:ring-brand"
               dangerouslySetInnerHTML={{ __html: o.svg }}
             />
           ))}
@@ -241,6 +241,7 @@ export function Editor({
   onPovChange,
   onEpigraphChange,
   onChapterArt,
+  showChapterArt,
   onInkSave,
   onForceSave,
   onToolState,
@@ -257,6 +258,7 @@ export function Editor({
   onPovChange: (v: string) => void;
   onEpigraphChange: (v: string) => void;
   onChapterArt: (patch: Partial<StoryNode>) => void;
+  showChapterArt: boolean;
   onInkSave: (ink: string) => void;
   onForceSave: () => void;
   onToolState: (s: ToolState | null) => void;
@@ -672,7 +674,7 @@ export function Editor({
             title="A quote or aside shown before the prose in book view & export"
           />
         </div>
-        {node.type !== "folder" && <ChapterArtRow node={node} onChapterArt={onChapterArt} />}
+        {showChapterArt && <ChapterArtRow node={node} onChapterArt={onChapterArt} />}
       </div>
 
       {proposal ? (

@@ -3,7 +3,7 @@ import type { Project, StoryNode, Entity, NodeType, EntityType } from "@incipit/
 import * as api from "../api.js";
 import { ManuscriptTree } from "./ManuscriptTree.js";
 import { SceneCards } from "./SceneCards.js";
-import { Editor } from "./Editor.js";
+import { Editor, ChapterArtRow } from "./Editor.js";
 import { StoryBible } from "./StoryBible.js";
 import { OutlineModal } from "./OutlineModal.js";
 import { ProjectSetup } from "./ProjectSetup.js";
@@ -301,6 +301,10 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
               onPovChange={(v) => patchNodeLocal(selected.id, { pov: v })}
               onEpigraphChange={(v) => patchNodeLocal(selected.id, { epigraph: v })}
               onChapterArt={(patch) => patchNodeLocal(selected.id, patch)}
+              // art only renders where book view draws a title for this node — a
+              // standalone scene/poem (its own titled page), not one nested in a
+              // chapter (the chapter's own art covers that, set on the chapter page)
+              showChapterArt={nodes.find((n) => n.id === selected.parentId)?.type !== "chapter"}
               onInkSave={(v) => patchNodeLocal(selected.id, { ink: v })}
               onForceSave={() => void flushNode(selected.id)}
               onToolState={setToolState}
@@ -313,6 +317,7 @@ export function Workspace({ projectId, connected, onExit }: { projectId: string;
               onTitle={(v) => patchNodeLocal(selected.id, { title: v })}
               onPov={(v) => patchNodeLocal(selected.id, { pov: v })}
               onEpigraph={(v) => patchNodeLocal(selected.id, { epigraph: v })}
+              onChapterArt={(patch) => patchNodeLocal(selected.id, patch)}
             />
           ) : (
             <div className="flex h-full items-center justify-center text-mute">
@@ -421,11 +426,13 @@ function FolderView({
   onTitle,
   onPov,
   onEpigraph,
+  onChapterArt,
 }: {
   node: StoryNode;
   onTitle: (v: string) => void;
   onPov: (v: string) => void;
   onEpigraph: (v: string) => void;
+  onChapterArt: (patch: Partial<StoryNode>) => void;
 }) {
   return (
     <div className="max-w-2xl px-8 py-6">
@@ -452,6 +459,7 @@ function FolderView({
             rows={3}
             className="w-full resize-none rounded-md bg-surface px-3 py-2 text-sm italic text-dim outline-none focus:bg-elevated"
           />
+          <ChapterArtRow node={node} onChapterArt={onChapterArt} />
         </div>
       )}
     </div>
